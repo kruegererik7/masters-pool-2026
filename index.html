@@ -117,6 +117,63 @@
     .score-total { font-weight: bold; font-size: 1rem; }
     .penalty-score { color: var(--red); font-style: italic; }
 
+    /* ── EXPANDABLE ROW ── */
+    .lb-member-row { cursor: pointer; user-select: none; }
+    .lb-member-row:hover td { background: var(--light-green) !important; }
+    .chevron {
+      display: inline-block;
+      margin-right: 8px;
+      font-size: 0.65rem;
+      color: var(--muted);
+      transition: transform 0.2s;
+      vertical-align: middle;
+    }
+    .chevron.open { transform: rotate(90deg); }
+
+    .lb-expand-row td {
+      padding: 0 !important;
+      background: #f7fbf7 !important;
+      border-bottom: 2px solid var(--gold) !important;
+    }
+    .lb-expand-inner {
+      display: none;
+      padding: 10px 16px 14px 48px;
+    }
+    .lb-expand-inner.open { display: block; }
+
+    .expand-golfer-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .expand-golfer-table th {
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.68rem;
+      letter-spacing: 1px;
+      padding: 4px 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+    }
+    .expand-golfer-table th:first-child { text-align: left; }
+    .expand-golfer-table td {
+      padding: 5px 10px;
+      border-bottom: 1px solid #eef0ee;
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--text);
+      background: transparent;
+      white-space: nowrap;
+    }
+    .expand-golfer-table td:first-child { text-align: left; font-weight: 500; }
+    .expand-golfer-table tr:last-child td { border-bottom: none; }
+
+    .g-score-counting   { color: var(--green); font-weight: bold; }
+    .g-score-strikethrough { color: #bbb; text-decoration: line-through; }
+    .g-score-mc         { color: #bbb; font-style: italic; font-size: 0.72rem; }
+    .g-score-null       { color: #ddd; }
+    .g-penalty-note     { font-size: 0.72rem; color: var(--red); font-style: italic; padding: 4px 10px; }
+
     /* ── ROUND BADGE ── */
     .round-badge {
       display: inline-block;
@@ -587,15 +644,25 @@ function renderLeaderboard() {
   document.getElementById('leaderboard-body').innerHTML = standings.map(s => {
     const r3IsPenalty = s.total !== null && mcCount(s.m) >= 2 && s.r3 !== null;
     const r4IsPenalty = s.total !== null && mcCount(s.m) >= 2 && s.r4 !== null;
+    const tieCount = standings.filter(x => x.total !== null && x.rank === s.rank).length;
+    const posLabel = s.rank !== null ? (tieCount > 1 ? 'T' + s.rank : s.rank) : '—';
+
     return `
-      <tr>
-        <td class="pos ${posClass(s.rank)}">${s.rank !== null ? (s.rank === standings.filter(x=>x.total!==null&&x.rank===s.rank).length > 1 ? 'T'+s.rank : s.rank) : '—'}</td>
-        <td class="member-name">${s.m}</td>
+      <tr class="lb-member-row" onclick="toggleExpand('expand-${s.m}', this)">
+        <td class="pos ${posClass(s.rank)}">${posLabel}</td>
+        <td class="member-name"><span class="chevron" id="chev-${s.m}">▶</span>${s.m}</td>
         <td>${fmtScore(s.r1)}</td>
         <td>${fmtScore(s.r2)}</td>
         <td>${s.r3 !== null ? (r3IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${s.r3}*</span>` : s.r3) : fmtScore(null)}</td>
         <td>${s.r4 !== null ? (r4IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${s.r4}*</span>` : s.r4) : fmtScore(null)}</td>
         <td class="score-total">${fmtScore(s.total)}</td>
+      </tr>
+      <tr class="lb-expand-row">
+        <td colspan="7">
+          <div class="lb-expand-inner" id="expand-${s.m}">
+            ${buildExpandHTML(s.m)}
+          </div>
+        </td>
       </tr>`;
   }).join('');
 
@@ -811,6 +878,82 @@ function flash(id, msg) {
   const el = document.getElementById(id);
   el.textContent = msg;
   setTimeout(() => el.textContent = '', 3000);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// LEADERBOARD EXPAND / COLLAPSE
+// ══════════════════════════════════════════════════════════════════════
+function toggleExpand(id, row) {
+  const panel = document.getElementById(id);
+  const chev  = row.querySelector('.chevron');
+  const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  chev.classList.toggle('open', !isOpen);
+}
+
+function buildExpandHTML(member) {
+  const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
+  if (!picks.length) return '<p style="color:#ccc;font-size:0.8rem;padding:8px 0">No picks entered yet.</p>';
+
+  const mc      = mcCount(member);
+  const penalty = mc >= 2;
+  const cntR3   = countingPicks(member, 'r3');
+  const cntR4   = countingPicks(member, 'r4');
+
+  const penaltyNote = penalty
+    ? `<tr><td colspan="5" class="g-penalty-note">⚠ 2+ players missed cut — penalty score applied for R3 &amp; R4</td></tr>`
+    : '';
+
+  const rows = picks.map(p => {
+    const r1 = getRound(p, 'r1');
+    const r2 = getRound(p, 'r2');
+    const r3 = getRound(p, 'r3');
+    const r4 = getRound(p, 'r4');
+    const isMC = missedCut(p);
+
+    // R1/R2 always count (if have a score)
+    const fmtWeekday = v =>
+      v === null ? `<span class="g-score-null">—</span>` :
+      `<span class="g-score-counting">${v}</span>`;
+
+    // R3/R4: counting, strikethrough, MC, penalty, or blank
+    const fmtWeekend = (v, countingSet, round) => {
+      if (isMC) return `<span class="g-score-mc">MC</span>`;
+      if (penalty) return v === null
+        ? `<span class="g-score-null">—</span>`
+        : `<span class="g-score-strikethrough">${v}</span>`;
+      if (v === null) return `<span class="g-score-null">—</span>`;
+      return countingSet.has(p)
+        ? `<span class="g-score-counting">${v}</span>`
+        : `<span class="g-score-strikethrough">${v}</span>`;
+    };
+
+    return `
+      <tr>
+        <td>${p}${isMC ? ' <span style="font-size:0.65rem;color:#bbb;font-style:italic">(MC)</span>' : ''}</td>
+        <td>${fmtWeekday(r1)}</td>
+        <td>${fmtWeekday(r2)}</td>
+        <td>${fmtWeekend(r3, cntR3, 'r3')}</td>
+        <td>${fmtWeekend(r4, cntR4, 'r4')}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <table class="expand-golfer-table">
+      <thead>
+        <tr>
+          <th>GOLFER</th>
+          <th>R1 THU</th>
+          <th>R2 FRI</th>
+          <th>R3 SAT</th>
+          <th>R4 SUN</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+        ${penaltyNote}
+      </tbody>
+    </table>`;
 }
 
 // ── INIT ──
