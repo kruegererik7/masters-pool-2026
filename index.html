@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Masters Pool 2026</title>
+  <style>
+    :root {
+      --green:       #1a472a;
+      --mid-green:   #2d6a4f;
+      --light-green: #e8f5e9;
+      --gold:        #c9a84c;
+      --light-gold:  #f5e6b8;
+      --white:       #ffffff;
+      --off-white:   #f8f8f6;
+      --border:      #ddd;
+      --text:        #2b2b2b;
+      --muted:       #888;
+      --red:         #b22222;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: var(--off-white);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--green);
+      color: var(--gold);
+      text-align: center;
+      padding: 22px 16px 16px;
+      border-bottom: 4px solid var(--gold);
+    }
+    header h1 { font-size: clamp(1.4rem, 4vw, 2.2rem); letter-spacing: 3px; }
+    header p  { font-size: 0.85rem; color: var(--light-gold); margin-top: 5px; letter-spacing: 1px; }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--mid-green);
+      display: flex;
+      justify-content: center;
+      border-bottom: 2px solid var(--gold);
+    }
+    nav button {
+      background: none;
+      border: none;
+      color: #cde8d0;
+      padding: 12px 28px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      letter-spacing: 1.5px;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+    }
+    nav button:hover  { background: rgba(255,255,255,0.1); color: white; }
+    nav button.active { background: var(--gold); color: var(--green); font-weight: bold; }
+
+    /* ── MAIN ── */
+    main { max-width: 1100px; margin: 24px auto; padding: 0 16px 48px; }
+
+    .tab-content         { display: none; }
+    .tab-content.active  { display: block; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--white);
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.09);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .card-header {
+      background: var(--green);
+      color: var(--gold);
+      padding: 11px 18px;
+      font-size: 0.8rem;
+      letter-spacing: 2px;
+      font-weight: bold;
+    }
+
+    /* ── LEADERBOARD TABLE ── */
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: var(--green);
+      color: var(--gold);
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    th:first-child, th:nth-child(2) { text-align: left; }
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid #efefef;
+      font-size: 0.9rem;
+      text-align: center;
+      white-space: nowrap;
+    }
+    td:first-child, td:nth-child(2) { text-align: left; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #fafaf8; }
+    tr:hover td { background: var(--light-green); transition: background 0.1s; }
+
+    .pos { font-weight: bold; color: var(--muted); min-width: 30px; }
+    .pos-1 { color: var(--gold); font-size: 1.1rem; }
+    .pos-2 { color: #aaa; }
+    .pos-3 { color: #c8784a; }
+
+    .member-name { font-weight: bold; }
+
+    .score-null  { color: #ccc; }
+    .score-total { font-weight: bold; font-size: 1rem; }
+    .penalty-score { color: var(--red); font-style: italic; }
+
+    /* ── ROUND BADGE ── */
+    .round-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      letter-spacing: 1px;
+      font-weight: bold;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    .badge-live    { background: #e8f5e9; color: #1a472a; border: 1px solid #a5d6a7; }
+    .badge-final   { background: var(--light-gold); color: #7a5000; border: 1px solid var(--gold); }
+    .badge-pending { background: #f5f5f5; color: #888; border: 1px solid #ddd; }
+
+    /* ── TEAMS GRID ── */
+    .teams-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 18px;
+      padding: 18px;
+    }
+    .team-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .team-card-header {
+      background: var(--green);
+      color: var(--gold);
+      padding: 9px 14px;
+      font-weight: bold;
+      font-size: 0.95rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .team-card-header .team-total {
+      font-size: 1rem;
+      color: var(--light-gold);
+    }
+    .team-col-headers {
+      display: grid;
+      grid-template-columns: 1fr 38px 38px 38px 38px;
+      font-size: 0.7rem;
+      color: var(--muted);
+      padding: 4px 12px;
+      background: #f9f9f7;
+      border-bottom: 1px solid #eee;
+      letter-spacing: 0.5px;
+    }
+    .team-player-row {
+      display: grid;
+      grid-template-columns: 1fr 38px 38px 38px 38px;
+      align-items: center;
+      padding: 7px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 0.82rem;
+    }
+    .team-player-row:last-child { border-bottom: none; }
+    .team-player-row.mc         { color: #bbb; }
+    .team-player-row .r-score   { text-align: center; font-size: 0.8rem; }
+    .team-player-row .r-score.counting    { font-weight: bold; color: var(--green); }
+    .team-player-row .r-score.not-counting{ color: #ccc; }
+    .team-player-row .r-score.mc-label    { color: #ccc; font-size: 0.7rem; font-style: italic; }
+    .mc-tag {
+      font-size: 0.65rem;
+      background: #f0f0f0;
+      color: #999;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 5px;
+      font-style: italic;
+      vertical-align: middle;
+    }
+    .penalty-row {
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      color: var(--red);
+      background: #fff5f5;
+      border-top: 1px dashed #fcc;
+      font-style: italic;
+    }
+
+    /* ── RULES CARD ── */
+    .rules-body { padding: 16px 20px; font-size: 0.85rem; line-height: 1.8; }
+    .rules-body ul { padding-left: 18px; }
+    .rules-body li { margin-bottom: 4px; }
+    .rules-body strong { color: var(--green); }
+
+    /* ── ADMIN ── */
+    .admin-section { padding: 20px; }
+    .admin-section h3 {
+      color: var(--green);
+      font-size: 0.85rem;
+      letter-spacing: 1.5px;
+      margin-bottom: 12px;
+      border-bottom: 2px solid var(--light-green);
+      padding-bottom: 6px;
+    }
+    .admin-note { font-size: 0.8rem; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+
+    .score-table input[type="text"] {
+      width: 62px;
+      padding: 5px;
+      text-align: center;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      font-family: inherit;
+    }
+    .score-table input[type="text"]:focus { outline: none; border-color: var(--green); }
+    .score-table input.mc-input { color: var(--red); font-weight: bold; }
+
+    .score-table th { font-size: 0.72rem; padding: 8px 10px; }
+    .score-table td { padding: 5px 8px; font-size: 0.82rem; }
+    .score-table td:first-child { font-size: 0.85rem; text-align: left; }
+
+    .penalty-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .field-group label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: bold;
+      color: var(--green);
+      margin-bottom: 5px;
+      letter-spacing: 0.5px;
+    }
+    .field-group input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.88rem;
+      font-family: inherit;
+    }
+    .field-group input:focus { outline: none; border-color: var(--green); }
+
+    .teams-setup-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .team-setup-card {
+      border: 1px solid #eee;
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+    .team-setup-card h4 {
+      color: var(--green);
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+    }
+    .picks-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .picks-grid input {
+      padding: 6px 4px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-family: inherit;
+      text-align: center;
+      width: 100%;
+    }
+    .picks-grid input:focus { outline: none; border-color: var(--green); }
+    .picks-grid .pick-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .btn {
+      background: var(--green);
+      color: white;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      letter-spacing: 1px;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--mid-green); }
+    .save-ok { margin-left: 12px; font-size: 0.82rem; color: #2e7d32; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      nav button { padding: 10px 14px; font-size: 0.72rem; letter-spacing: 0.5px; }
+      th, td { padding: 8px 8px; font-size: 0.78rem; }
+      .teams-grid { padding: 10px; gap: 12px; }
+      .penalty-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>THE MASTERS POOL 2026</h1>
+  <p>AUGUSTA NATIONAL GOLF CLUB &nbsp;·&nbsp; APRIL 10–13, 2026</p>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('leaderboard', this)">LEADERBOARD</button>
+  <button onclick="showTab('teams', this)">TEAMS</button>
+  <button onclick="showTab('admin', this)">ADMIN</button>
+</nav>
+
+<main>
+
+  <!-- ════════════════════════════════ LEADERBOARD ════════════════════════════════ -->
+  <div id="tab-leaderboard" class="tab-content active">
+    <div class="card">
+      <div class="card-header" id="standings-header">POOL STANDINGS</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px">POS</th>
+            <th>NAME</th>
+            <th>THU (R1)</th>
+            <th>FRI (R2)</th>
+            <th>SAT (R3)</th>
+            <th>SUN (R4)</th>
+            <th>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-header">SCORING RULES</div>
+      <div class="rules-body">
+        <ul>
+          <li><strong>Thursday &amp; Friday:</strong> All 5 players' scores count toward your daily total.</li>
+          <li><strong>Saturday &amp; Sunday:</strong> Only your top 4 scores count (best 4 of your active players).</li>
+          <li><strong>Penalty:</strong> If 2 or more of your players miss the cut, your score for each weekend day equals the worst individual score in the field that day.</li>
+          <li><strong>Winner:</strong> Lowest cumulative combined score across all four rounds.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════ TEAMS ════════════════════════════════ -->
+  <div id="tab-teams" class="tab-content">
+    <div id="teams-grid" class="teams-grid"></div>
+  </div>
+
+  <!-- ════════════════════════════════ ADMIN ════════════════════════════════ -->
+  <div id="tab-admin" class="tab-content">
+
+    <!-- Score Entry -->
+    <div class="card">
+      <div class="card-header">UPDATE GOLFER SCORES</div>
+      <div class="admin-section">
+        <p class="admin-note">
+          Enter stroke totals for each round (e.g. <strong>71</strong>). Type <strong>MC</strong> in R3 to mark a player as missed cut — R4 will auto-fill as MC.
+          Leave blank if the round hasn't been played yet.
+        </p>
+        <div id="score-entry-area"></div>
+
+        <h3 style="margin-top:20px">WEEKEND PENALTY SCORE</h3>
+        <p class="admin-note">
+          Worst individual round score in the entire field on Saturday and Sunday.
+          Applied to any pool member with 2+ players missing the cut.
+        </p>
+        <div class="penalty-grid">
+          <div class="field-group">
+            <label>Saturday (R3) Penalty</label>
+            <input type="number" id="penalty-r3" placeholder="e.g. 81" />
+          </div>
+          <div class="field-group">
+            <label>Sunday (R4) Penalty</label>
+            <input type="number" id="penalty-r4" placeholder="e.g. 79" />
+          </div>
+        </div>
+
+        <button class="btn" onclick="saveScores()">SAVE SCORES</button>
+        <span class="save-ok" id="score-save-ok"></span>
+      </div>
+    </div>
+
+    <!-- Teams Setup -->
+    <div class="card">
+      <div class="card-header">TEAM PICKS SETUP</div>
+      <div class="admin-section">
+        <p class="admin-note">Enter each pool member's 5 golfer picks. Use the golfer's full name exactly as you'll enter it in the score table above.</p>
+        <div class="teams-setup-grid" id="teams-setup-area"></div>
+        <button class="btn" onclick="saveTeams()">SAVE TEAMS</button>
+        <span class="save-ok" id="teams-save-ok"></span>
+      </div>
+    </div>
+
+  </div><!-- /admin -->
+
+</main>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+// POOL MEMBERS
+// ══════════════════════════════════════════════════════════════════════
+const MEMBERS = ['Danny','Tony','Hugo','Zach','Diego','Erik','Drew','Andy','Tyreese','Jonny'];
+
+// ══════════════════════════════════════════════════════════════════════
+// STATE  (persisted in localStorage)
+// ══════════════════════════════════════════════════════════════════════
+//
+// teams: { MemberName: ['Golfer A', 'Golfer B', ...5 picks] }
+//
+// scores: { 'Golfer Name': { r1: 71, r2: 68, r3: 'MC', r4: 'MC' } }
+//   null  = round not played yet
+//   'MC'  = missed cut (no score)
+//   number = stroke total for that round
+//
+// penalties: { r3: 81, r4: null }   (worst score in field, used when 2+ MC)
+//
+const DEFAULT_TEAMS = Object.fromEntries(MEMBERS.map(m => [m, ['','','','','']]));
+
+let teams    = load('pool_teams_26')    || DEFAULT_TEAMS;
+let scores   = load('pool_scores_26')   || {};
+let penalties = load('pool_penalties_26') || { r3: null, r4: null };
+
+function load(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+}
+function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+// ══════════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════════
+function allGolfers() {
+  const set = new Set();
+  Object.values(teams).forEach(picks => picks.forEach(p => { if (p.trim()) set.add(p.trim()); }));
+  return [...set].sort();
+}
+
+function getRound(golfer, r) {
+  const v = scores[golfer]?.[r];
+  if (v === undefined || v === null || v === '') return null;
+  if (String(v).toUpperCase() === 'MC') return 'MC';
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
+
+function missedCut(golfer) {
+  return getRound(golfer, 'r3') === 'MC';
+}
+
+// Count how many of member's picks missed the cut
+function mcCount(member) {
+  return (teams[member] || []).filter(p => p.trim() && missedCut(p.trim())).length;
+}
+
+// For Sat/Sun: which picks are "counting" (top 4 by score)?
+// Returns Set of golfer names that count for this member on this round.
+function countingPicks(member, round) {
+  const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
+  const mc = mcCount(member);
+
+  if (mc >= 2) return new Set(); // penalty applies, no individual picks count
+
+  // Gather valid scores for the round
+  const withScores = picks
+    .filter(p => !missedCut(p))
+    .map(p => ({ p, s: getRound(p, round) }))
+    .filter(x => typeof x.s === 'number');
+
+  // Sort ascending (lowest = best), take 4
+  withScores.sort((a, b) => a.s - b.s);
+  return new Set(withScores.slice(0, 4).map(x => x.p));
+}
+
+// Team score for one round
+function teamRoundScore(member, round) {
+  const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
+  if (!picks.length) return null;
+
+  if (round === 'r1' || round === 'r2') {
+    const vals = picks.map(p => getRound(p, round)).filter(v => typeof v === 'number');
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0);
+  }
+
+  // Weekend: r3 or r4
+  const mc = mcCount(member);
+  if (mc >= 2) {
+    const pen = penalties[round];
+    return (pen !== null && pen !== undefined && pen !== '') ? Number(pen) : null;
+  }
+
+  const counting = countingPicks(member, round);
+  if (!counting.size) return null;
+  let sum = 0;
+  for (const p of counting) {
+    const s = getRound(p, round);
+    if (typeof s !== 'number') return null; // round not complete yet
+    sum += s;
+  }
+  return sum;
+}
+
+function teamTotal(member) {
+  const rounds = ['r1','r2','r3','r4'].map(r => teamRoundScore(member, r));
+  const played = rounds.filter(v => v !== null);
+  if (!played.length) return null;
+  return played.reduce((a, b) => a + b, 0);
+}
+
+function fmtScore(v) {
+  if (v === null || v === undefined) return '<span class="score-null">—</span>';
+  return v;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════════════
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'leaderboard') renderLeaderboard();
+  if (name === 'teams')       renderTeams();
+  if (name === 'admin')       renderAdmin();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// LEADERBOARD
+// ══════════════════════════════════════════════════════════════════════
+function renderLeaderboard() {
+  const standings = MEMBERS.map(m => ({
+    m,
+    r1: teamRoundScore(m, 'r1'),
+    r2: teamRoundScore(m, 'r2'),
+    r3: teamRoundScore(m, 'r3'),
+    r4: teamRoundScore(m, 'r4'),
+    total: teamTotal(m),
+  }));
+
+  standings.sort((a, b) => {
+    if (a.total === null && b.total === null) return 0;
+    if (a.total === null) return 1;
+    if (b.total === null) return -1;
+    return a.total - b.total;
+  });
+
+  // Handle ties
+  let rank = 1;
+  standings.forEach((s, i) => {
+    if (i > 0 && s.total !== null && s.total === standings[i-1].total) {
+      s.rank = standings[i-1].rank;
+    } else {
+      s.rank = s.total !== null ? rank : null;
+    }
+    if (s.total !== null) rank++;
+  });
+
+  const posClass = r => r === 1 ? 'pos-1' : r === 2 ? 'pos-2' : r === 3 ? 'pos-3' : '';
+
+  document.getElementById('leaderboard-body').innerHTML = standings.map(s => {
+    const r3IsPenalty = s.total !== null && mcCount(s.m) >= 2 && s.r3 !== null;
+    const r4IsPenalty = s.total !== null && mcCount(s.m) >= 2 && s.r4 !== null;
+    return `
+      <tr>
+        <td class="pos ${posClass(s.rank)}">${s.rank !== null ? (s.rank === standings.filter(x=>x.total!==null&&x.rank===s.rank).length > 1 ? 'T'+s.rank : s.rank) : '—'}</td>
+        <td class="member-name">${s.m}</td>
+        <td>${fmtScore(s.r1)}</td>
+        <td>${fmtScore(s.r2)}</td>
+        <td>${s.r3 !== null ? (r3IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${s.r3}*</span>` : s.r3) : fmtScore(null)}</td>
+        <td>${s.r4 !== null ? (r4IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${s.r4}*</span>` : s.r4) : fmtScore(null)}</td>
+        <td class="score-total">${fmtScore(s.total)}</td>
+      </tr>`;
+  }).join('');
+
+  // Update header badge
+  const played = allGolfers().some(g => scores[g]?.r1 !== null && scores[g]?.r1 !== undefined);
+  const r4done  = allGolfers().some(g => typeof getRound(g,'r4') === 'number');
+  const header  = document.getElementById('standings-header');
+  if (!played) {
+    header.innerHTML = 'POOL STANDINGS <span class="round-badge badge-pending">AWAITING R1</span>';
+  } else if (r4done) {
+    header.innerHTML = 'POOL STANDINGS <span class="round-badge badge-final">FINAL</span>';
+  } else {
+    const rounds = ['r4','r3','r2','r1'];
+    const labels = { r4:'R4 LIVE', r3:'R3 LIVE', r2:'R2 LIVE', r1:'R1 LIVE' };
+    for (const r of rounds) {
+      if (allGolfers().some(g => typeof getRound(g, r) === 'number')) {
+        header.innerHTML = `POOL STANDINGS <span class="round-badge badge-live">${labels[r]}</span>`;
+        break;
+      }
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TEAMS
+// ══════════════════════════════════════════════════════════════════════
+function renderTeams() {
+  const container = document.getElementById('teams-grid');
+
+  // Determine current furthest round for context
+  const inWeekend = allGolfers().some(g => typeof getRound(g,'r3') === 'number');
+
+  container.innerHTML = MEMBERS.map(member => {
+    const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
+    const mc    = mcCount(member);
+    const isPenaltyR3 = inWeekend && mc >= 2;
+
+    const countR3 = countingPicks(member, 'r3');
+    const countR4 = countingPicks(member, 'r4');
+
+    const total = teamTotal(member);
+
+    const playerRows = picks.length ? picks.map(p => {
+      const r1 = getRound(p, 'r1');
+      const r2 = getRound(p, 'r2');
+      const r3 = getRound(p, 'r3');
+      const r4 = getRound(p, 'r4');
+      const isMC = missedCut(p);
+
+      const fmtR = (v, isCounting, isMCRound) => {
+        if (isMCRound) return `<span class="r-score mc-label">MC</span>`;
+        if (v === null) return `<span class="r-score">—</span>`;
+        const cls = isCounting ? 'counting' : 'not-counting';
+        return `<span class="r-score ${cls}">${v}</span>`;
+      };
+
+      const r3Counting = !isPenaltyR3 && countR3.has(p);
+      const r4Counting = !isPenaltyR3 && countR4.has(p);
+
+      return `
+        <div class="team-player-row${isMC ? ' mc' : ''}">
+          <span>${p}${isMC ? '<span class="mc-tag">MC</span>' : ''}</span>
+          ${fmtR(r1, true, false)}
+          ${fmtR(r2, true, false)}
+          ${fmtR(r3, r3Counting, isMC)}
+          ${fmtR(r4, r4Counting, isMC)}
+        </div>`;
+    }).join('') : `<div style="padding:12px;color:#ccc;font-size:0.82rem">No picks entered</div>`;
+
+    const penaltyNote = isPenaltyR3 ?
+      `<div class="penalty-row">⚠ 2+ players missed cut — penalty score applies for R3/R4</div>` : '';
+
+    return `
+      <div class="team-card">
+        <div class="team-card-header">
+          <span>${member}</span>
+          <span class="team-total">${total !== null ? total : '—'}</span>
+        </div>
+        <div class="team-col-headers">
+          <span>GOLFER</span>
+          <span style="text-align:center">R1</span>
+          <span style="text-align:center">R2</span>
+          <span style="text-align:center">R3</span>
+          <span style="text-align:center">R4</span>
+        </div>
+        ${playerRows}
+        ${penaltyNote}
+      </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════════════════════════════════════
+function renderAdmin() {
+  renderScoreEntry();
+  renderTeamsSetup();
+  document.getElementById('penalty-r3').value = penalties.r3 ?? '';
+  document.getElementById('penalty-r4').value = penalties.r4 ?? '';
+}
+
+function renderScoreEntry() {
+  const golfers = allGolfers();
+  const area    = document.getElementById('score-entry-area');
+
+  if (!golfers.length) {
+    area.innerHTML = '<p class="admin-note" style="color:#bbb">Set up team picks first, then golfer names will appear here.</p>';
+    return;
+  }
+
+  area.innerHTML = `
+    <table class="score-table" style="margin-bottom:16px">
+      <thead>
+        <tr>
+          <th style="text-align:left;min-width:160px">GOLFER</th>
+          <th>R1 (THU)</th>
+          <th>R2 (FRI)</th>
+          <th>R3 (SAT)</th>
+          <th>R4 (SUN)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${golfers.map(g => {
+          const gs = scores[g] || {};
+          return `
+            <tr>
+              <td>${g}</td>
+              ${['r1','r2','r3','r4'].map(r => {
+                const v = gs[r];
+                const display = (v === null || v === undefined) ? '' : v;
+                const isMCVal = String(display).toUpperCase() === 'MC';
+                return `<td><input type="text" id="sc_${CSS.escape(g)}_${r}"
+                  data-golfer="${g}" data-round="${r}"
+                  value="${display}" placeholder="—"
+                  class="${isMCVal ? 'mc-input' : ''}"
+                  oninput="onScoreInput(this)" /></td>`;
+              }).join('')}
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function onScoreInput(el) {
+  el.classList.toggle('mc-input', el.value.toUpperCase() === 'MC');
+  // Auto-fill R4 as MC if R3 is MC
+  const g = el.dataset.golfer;
+  const r = el.dataset.round;
+  if (r === 'r3' && el.value.toUpperCase() === 'MC') {
+    const r4el = document.querySelector(`[data-golfer="${g}"][data-round="r4"]`);
+    if (r4el) { r4el.value = 'MC'; r4el.classList.add('mc-input'); }
+  }
+}
+
+function saveScores() {
+  allGolfers().forEach(g => {
+    if (!scores[g]) scores[g] = {};
+    ['r1','r2','r3','r4'].forEach(r => {
+      const el = document.querySelector(`[data-golfer="${g}"][data-round="${r}"]`);
+      if (!el) return;
+      const raw = el.value.trim();
+      if (!raw || raw === '—') {
+        scores[g][r] = null;
+      } else if (raw.toUpperCase() === 'MC') {
+        scores[g][r] = 'MC';
+      } else {
+        const n = parseInt(raw, 10);
+        scores[g][r] = isNaN(n) ? null : n;
+      }
+    });
+  });
+
+  const p3 = parseInt(document.getElementById('penalty-r3').value, 10);
+  const p4 = parseInt(document.getElementById('penalty-r4').value, 10);
+  penalties.r3 = isNaN(p3) ? null : p3;
+  penalties.r4 = isNaN(p4) ? null : p4;
+
+  save('pool_scores_26', scores);
+  save('pool_penalties_26', penalties);
+
+  flash('score-save-ok', 'Saved ✓');
+}
+
+function renderTeamsSetup() {
+  document.getElementById('teams-setup-area').innerHTML = MEMBERS.map(member => `
+    <div class="team-setup-card">
+      <h4>${member.toUpperCase()}</h4>
+      <div class="picks-grid">
+        ${[0,1,2,3,4].map(i => `
+          <div>
+            <div class="pick-label">Pick ${i+1}</div>
+            <input type="text" id="tp_${member}_${i}"
+              value="${(teams[member] || [])[i] || ''}"
+              placeholder="Golfer name" />
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function saveTeams() {
+  MEMBERS.forEach(member => {
+    teams[member] = [0,1,2,3,4].map(i => {
+      const el = document.getElementById(`tp_${member}_${i}`);
+      return el ? el.value.trim() : '';
+    });
+  });
+  save('pool_teams_26', teams);
+  flash('teams-save-ok', 'Saved ✓');
+  renderScoreEntry(); // refresh golfer list
+}
+
+function flash(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  setTimeout(() => el.textContent = '', 3000);
+}
+
+// ── INIT ──
+renderLeaderboard();
+</script>
+</body>
+</html>
