@@ -2,9 +2,9 @@
   "name": "masters-pool-2026",
   "version": "1.0.0",
   "scripts": {
-    "start": "serve . -p $PORT"
+    "start": "node server.js"
   },
   "dependencies": {
-    "serve": "^14.2.3"
+    "express": "^4.18.2"
   }
 }
