@@ -470,57 +470,66 @@ function allGolfers() {
   return [...set].sort();
 }
 
+// Returns round object: { strokes, toPar, thru, status } or null
 function getRound(golfer, r) {
   const v = scores[golfer]?.[r];
-  if (v === undefined || v === null || v === '') return null;
-  if (String(v).toUpperCase() === 'MC') return 'MC';
-  const n = Number(v);
-  return isNaN(n) ? null : n;
+  if (!v || typeof v !== 'object') return null;
+  return v;
 }
 
-function missedCut(golfer) { return getRound(golfer, 'r3') === 'MC'; }
+function missedCut(golfer) { return getRound(golfer, 'r3')?.status === 'MC'; }
 
 function mcCount(member) {
   return (teams[member] || []).filter(p => p.trim() && missedCut(p.trim())).length;
 }
 
+// Returns Set of golfer names whose score counts for a weekend round
 function countingPicks(member, round) {
   const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
   if (mcCount(member) >= 2) return new Set();
-  const withScores = picks
+  const withToPar = picks
     .filter(p => !missedCut(p))
-    .map(p => ({ p, s: getRound(p, round) }))
-    .filter(x => typeof x.s === 'number');
-  withScores.sort((a, b) => a.s - b.s);
-  return new Set(withScores.slice(0, 4).map(x => x.p));
+    .map(p => {
+      const rd = getRound(p, round);
+      const tp = (rd && rd.status !== 'notstarted' && rd.status !== 'MC' && rd.toPar !== null) ? rd.toPar : null;
+      return { p, toPar: tp };
+    })
+    .filter(x => x.toPar !== null);
+  withToPar.sort((a, b) => a.toPar - b.toPar);
+  return new Set(withToPar.slice(0, 4).map(x => x.p));
 }
 
+// Returns team round score as to-par number
 function teamRoundScore(member, round) {
   const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
   if (!picks.length) return null;
 
+  const mc = mcCount(member);
+  if ((round === 'r3' || round === 'r4') && mc >= 2) {
+    const pen = penalties[round];
+    return (pen !== null && pen !== undefined) ? Number(pen) : null;
+  }
+
+  const getTP = p => {
+    if (missedCut(p) && (round === 'r3' || round === 'r4')) return null;
+    const rd = getRound(p, round);
+    if (!rd || rd.status === 'notstarted' || rd.status === 'MC') return null;
+    return rd.toPar; // null if ESPN hasn't sent us a value yet
+  };
+
   if (round === 'r1' || round === 'r2') {
-    const vals = picks.map(p => getRound(p, round)).filter(v => typeof v === 'number');
+    const vals = picks.map(getTP).filter(v => v !== null);
     return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
   }
 
-  const mc = mcCount(member);
-  if (mc >= 2) {
-    const pen = penalties[round];
-    return (pen !== null && pen !== undefined && pen !== '') ? Number(pen) : null;
-  }
-
+  // Weekend: sum top-4
   const counting = countingPicks(member, round);
   if (!counting.size) return null;
-  let sum = 0;
-  for (const p of counting) {
-    const s = getRound(p, round);
-    if (typeof s !== 'number') return null;
-    sum += s;
-  }
-  return sum;
+  const vals = [...counting].map(p => getRound(p, round)?.toPar).filter(v => v !== null);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
 }
 
+// Returns team total as to-par number
 function teamTotal(member) {
   const rounds = ['r1','r2','r3','r4'].map(r => teamRoundScore(member, r));
   const played = rounds.filter(v => v !== null);
@@ -528,10 +537,51 @@ function teamTotal(member) {
   return played.reduce((a, b) => a + b, 0);
 }
 
+// ── Display helpers ─────────────────────────────────────────────────
+// Convert to-par number → "+3" / "E" / "-4"
+function toParStr(n) {
+  if (n === null || n === undefined) return null;
+  if (n === 0) return 'E';
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
+// Format to-par for a team round/total cell
 function fmtScore(v) {
-  return (v === null || v === undefined)
-    ? '<span class="score-null">—</span>'
-    : v;
+  if (v === null || v === undefined) return '<span class="score-null">—</span>';
+  return toParStr(v) || 'E';
+}
+
+// Format an individual player's round data object for display
+//   complete:    "70 (-2)"
+//   inprogress:  "-2 (thru 7)"
+//   MC:          "MC"
+//   notstarted:  "—"
+function fmtRoundCell(rd) {
+  if (!rd || rd.status === 'notstarted') return '<span class="score-null">—</span>';
+  if (rd.status === 'MC') return '<span class="g-score-mc">MC</span>';
+  if (rd.status === 'WD') return '<span class="g-score-mc">WD</span>';
+  if (rd.status === 'complete') {
+    const tp = toParStr(rd.toPar);
+    return `${rd.strokes} <span style="color:var(--muted);font-size:0.75rem">(${tp || 'E'})</span>`;
+  }
+  if (rd.status === 'inprogress') {
+    const tp      = toParStr(rd.toPar) || 'E';
+    const thruStr = rd.thru !== null ? `thru ${rd.thru}` : 'live';
+    return `<span style="color:var(--green);font-weight:bold">${tp}</span><span style="color:var(--muted);font-size:0.72rem"> (${thruStr})</span>`;
+  }
+  return '<span class="score-null">—</span>';
+}
+
+// Compact version for team cards (just strokes if done, to-par if live)
+function fmtRoundCompact(rd) {
+  if (!rd || rd.status === 'notstarted') return '<span style="color:#ccc">—</span>';
+  if (rd.status === 'MC') return '<span style="color:#bbb;font-style:italic;font-size:0.72rem">MC</span>';
+  if (rd.status === 'complete') return String(rd.strokes);
+  if (rd.status === 'inprogress') {
+    const tp = toParStr(rd.toPar) || 'E';
+    return `<span style="color:var(--green);font-style:italic">${tp}</span>`;
+  }
+  return '<span style="color:#ccc">—</span>';
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -578,9 +628,9 @@ function renderLeaderboard() {
         <td class="member-name"><span class="chevron" id="chev-${s.m}">▶</span>${s.m}</td>
         <td>${fmtScore(s.r1)}</td>
         <td>${fmtScore(s.r2)}</td>
-        <td>${s.r3 !== null ? (r3IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${s.r3}*</span>` : s.r3) : fmtScore(null)}</td>
-        <td>${s.r4 !== null ? (r4IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${s.r4}*</span>` : s.r4) : fmtScore(null)}</td>
-        <td class="score-total-cell">${s.total !== null ? `<span class="score-total-pill">${s.total}</span>` : `<span class="score-null">—</span>`}</td>
+        <td>${s.r3 !== null ? (r3IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${toParStr(s.r3)}*</span>` : fmtScore(s.r3)) : fmtScore(null)}</td>
+        <td>${s.r4 !== null ? (r4IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${toParStr(s.r4)}*</span>` : fmtScore(s.r4)) : fmtScore(null)}</td>
+        <td class="score-total-cell">${s.total !== null ? `<span class="score-total-pill">${toParStr(s.total) || 'E'}</span>` : `<span class="score-null">—</span>`}</td>
       </tr>`;
 
     const golferRows = buildGolferSubRows(s.m);
@@ -588,20 +638,23 @@ function renderLeaderboard() {
   }).join('');
 
   // Header badge — only update the badge span, never the full header (preserves the Expand All button)
-  const golfers = allGolfers();
-  const played  = golfers.some(g => scores[g]?.r1 !== null && scores[g]?.r1 !== undefined);
-  const r4done  = golfers.some(g => typeof getRound(g,'r4') === 'number');
-  const badge   = document.getElementById('standings-badge');
+  const golfers  = allGolfers();
+  const hasAny   = r => golfers.some(g => { const rd = getRound(g, r); return rd && rd.status !== 'notstarted'; });
+  const isLive   = r => golfers.some(g => getRound(g, r)?.status === 'inprogress');
+  const isDone   = r => golfers.some(g => getRound(g, r)?.status === 'complete');
+  const badge    = document.getElementById('standings-badge');
   if (badge) {
-    if (!played) {
+    if (!hasAny('r1')) {
       badge.innerHTML = '<span class="round-badge badge-pending">AWAITING R1</span>';
-    } else if (r4done) {
+    } else if (isDone('r4') && !isLive('r4')) {
       badge.innerHTML = '<span class="round-badge badge-final">FINAL</span>';
     } else {
       badge.innerHTML = '';
-      for (const [r, label] of [['r4','R4 LIVE'],['r3','R3 LIVE'],['r2','R2 LIVE'],['r1','R1 LIVE']]) {
-        if (golfers.some(g => typeof getRound(g, r) === 'number')) {
-          badge.innerHTML = `<span class="round-badge badge-live">${label}</span>`;
+      for (const [r, label] of [['r4','R4'],['r3','R3'],['r2','R2'],['r1','R1']]) {
+        if (hasAny(r)) {
+          const liveLabel = isLive(r) ? `${label} LIVE` : label;
+          const cls = isLive(r) ? 'badge-live' : 'badge-final';
+          badge.innerHTML = `<span class="round-badge ${cls}">${liveLabel}</span>`;
           break;
         }
       }
@@ -637,15 +690,24 @@ function buildGolferSubRows(member) {
   const cntR3   = countingPicks(member, 'r3');
   const cntR4   = countingPicks(member, 'r4');
 
-  const fmtWeekday = v =>
-    v === null ? `<span class="g-score-null">—</span>` : `<span class="g-score-counting">${v}</span>`;
+  // Wrap a formatted round cell with counting/strikethrough styling
+  const wrapCounting = (html, isCounting) =>
+    isCounting
+      ? `<span class="g-score-counting">${html}</span>`
+      : `<span class="g-score-strikethrough">${html}</span>`;
 
-  const fmtWeekend = (p, v, countingSet) => {
-    const isMC = missedCut(p);
-    if (isMC)      return `<span class="g-score-mc">MC</span>`;
-    if (penalty)   return v === null ? `<span class="g-score-null">—</span>` : `<span class="g-score-strikethrough">${v}</span>`;
-    if (v === null) return `<span class="g-score-null">—</span>`;
-    return countingSet.has(p) ? `<span class="g-score-counting">${v}</span>` : `<span class="g-score-strikethrough">${v}</span>`;
+  const fmtWeekday = rd => {
+    const html = fmtRoundCell(rd);
+    return `<span class="g-score-counting">${html}</span>`; // weekday always counts
+  };
+
+  const fmtWeekend = (p, rd, countingSet) => {
+    if (missedCut(p)) return `<span class="g-score-mc">MC</span>`;
+    const html = fmtRoundCell(rd);
+    if (penalty) return wrapCounting(html, false); // penalty — all struck through
+    const rdStatus = rd?.status;
+    if (!rdStatus || rdStatus === 'notstarted') return html;
+    return wrapCounting(html, countingSet.has(p));
   };
 
   const rows = picks.map(p => {
@@ -688,23 +750,22 @@ function renderTeams() {
     const total   = teamTotal(member);
 
     const playerRows = picks.length ? picks.map(p => {
-      const r1 = getRound(p, 'r1'), r2 = getRound(p, 'r2');
-      const r3 = getRound(p, 'r3'), r4 = getRound(p, 'r4');
       const isMC = missedCut(p);
 
-      const fmtR = (v, isCounting, isMCRound) => {
-        if (isMCRound)  return `<span class="r-score mc-label">MC</span>`;
-        if (v === null) return `<span class="r-score">—</span>`;
-        return `<span class="r-score ${isCounting ? 'counting' : 'not-counting'}">${v}</span>`;
+      const fmtR = (rd, isCounting, isMCRound) => {
+        if (isMCRound) return `<span class="r-score mc-label">MC</span>`;
+        const html = fmtRoundCompact(rd);
+        const cls  = isCounting ? 'counting' : (rd?.status === 'notstarted' || !rd) ? '' : 'not-counting';
+        return `<span class="r-score ${cls}">${html}</span>`;
       };
 
       return `
         <div class="team-player-row${isMC ? ' mc' : ''}">
           <span>${p}${isMC ? '<span class="mc-tag">MC</span>' : ''}</span>
-          ${fmtR(r1, true, false)}
-          ${fmtR(r2, true, false)}
-          ${fmtR(r3, !isPenaltyR3 && countR3.has(p), isMC)}
-          ${fmtR(r4, !isPenaltyR3 && countR4.has(p), isMC)}
+          ${fmtR(getRound(p,'r1'), true, false)}
+          ${fmtR(getRound(p,'r2'), true, false)}
+          ${fmtR(getRound(p,'r3'), !isPenaltyR3 && countR3.has(p), isMC)}
+          ${fmtR(getRound(p,'r4'), !isPenaltyR3 && countR4.has(p), isMC)}
         </div>`;
     }).join('') : `<div style="padding:12px;color:#ccc;font-size:0.82rem">No picks entered</div>`;
 
@@ -715,7 +776,7 @@ function renderTeams() {
       <div class="team-card">
         <div class="team-card-header">
           <span>${member}</span>
-          <span class="team-total">${total !== null ? total : '—'}</span>
+          <span class="team-total">${total !== null ? (toParStr(total) || 'E') : '—'}</span>
         </div>
         <div class="team-col-headers">
           <span>GOLFER</span>

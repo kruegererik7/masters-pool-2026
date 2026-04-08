@@ -61,6 +61,15 @@ function getPoolGolfers() {
   return set;
 }
 
+// Parse "E", "-3", "+2" → number (0, -3, 2)
+function parseToParNum(str) {
+  if (!str) return null;
+  const s = str.trim().toUpperCase();
+  if (s === 'E' || s === 'EVEN') return 0;
+  const n = parseInt(s.replace(/^\+/, ''), 10);
+  return isNaN(n) ? null : n;
+}
+
 async function syncFromESPN() {
   try {
     console.log('[ESPN] Syncing…');
@@ -70,51 +79,88 @@ async function syncFromESPN() {
 
     const event = json.events?.[0];
     if (!event) throw new Error('No active tournament in ESPN feed');
-
     const competition = event.competitions?.[0];
     if (!competition) throw new Error('No competition data');
 
-    const poolGolfers  = getPoolGolfers();
-    const fieldR3 = [];
-    const fieldR4 = [];
+    const poolGolfers = getPoolGolfers();
+    let worstR3ToPar = null, worstR4ToPar = null;
 
     for (const comp of (competition.competitors || [])) {
       const name = comp.athlete?.displayName;
       if (!name) continue;
 
-      const ls   = comp.linescores || [];
-      const stat = comp.status?.type?.name || '';
-      const isMC = stat === 'STATUS_MISSED_CUT' || stat === 'STATUS_CUT'
-                || (comp.status?.type?.shortDetail || '').toUpperCase() === 'MC';
+      const ls       = comp.linescores || [];
+      const detail   = (comp.status?.type?.shortDetail || '').trim();
+      const statName = comp.status?.type?.name || '';
+      const isMC     = statName === 'STATUS_MISSED_CUT' || statName === 'STATUS_CUT';
+      const isWD     = statName === 'STATUS_WITHDRAWN';
 
-      // Collect field scores for auto-penalty calculation (active players only)
-      const r3v = Number(ls[2]?.value);
-      const r4v = Number(ls[3]?.value);
-      if (!isMC && r3v > 50) fieldR3.push(r3v);  // >50 guards against relative-to-par values
-      if (!isMC && r4v > 50) fieldR4.push(r4v);
+      // Completed rounds have stroke totals > 50 in linescores
+      const roundStrokes = [0,1,2,3].map(i => {
+        const v = Number(ls[i]?.value);
+        return (!isNaN(v) && v > 50) ? v : null;
+      });
+      const numComplete = roundStrokes.filter(v => v !== null).length;
 
-      // Only update golfers in our pool (case-insensitive match)
-      const poolName = [...poolGolfers].find(
-        g => g.toLowerCase() === name.toLowerCase()
-      );
-      if (!poolName) continue;
+      // Parse shortDetail:
+      //   "-3 thru 12"  → in progress, tournament to-par = -3, thru 12 holes
+      //   "F" / "-5"    → finished for the day
+      //   "MC" / "WD"   → special statuses
+      //   "9:15 AM"     → not yet started
+      let inProgress = false, thru = null, tourneyToPar = null, finishedToday = false;
+      const thruMatch = detail.match(/(.+?)\s+thru\s+(\d+)/i);
+      if (thruMatch) {
+        inProgress   = true;
+        thru         = parseInt(thruMatch[2], 10);
+        tourneyToPar = parseToParNum(thruMatch[1]);
+      } else if (/^F$/i.test(detail) || /^(E|[+-]\d+|\d+)$/.test(detail)) {
+        finishedToday = true;
+      }
 
-      const parseVal = v => {
-        const n = Number(v);
-        return (!isNaN(n) && n > 50) ? n : null; // stroke totals are always >50
-      };
+      // Build rich per-round objects
+      const roundData = {};
+      let cumToPar = 0; // sum of completed rounds' to-par (for deriving current round to-par)
 
-      appData.scores[poolName] = {
-        r1: parseVal(ls[0]?.value),
-        r2: parseVal(ls[1]?.value),
-        r3: isMC ? 'MC' : parseVal(ls[2]?.value),
-        r4: isMC ? 'MC' : parseVal(ls[3]?.value),
-      };
+      for (let i = 0; i < 4; i++) {
+        const rKey = `r${i + 1}`;
+        if (isMC && i >= 2) {
+          roundData[rKey] = { strokes: null, toPar: null, thru: null, status: 'MC' };
+        } else if (roundStrokes[i] !== null) {
+          // Completed round — we have final strokes
+          const rToPar = roundStrokes[i] - 72;
+          roundData[rKey] = { strokes: roundStrokes[i], toPar: rToPar, thru: 18, status: 'complete' };
+          cumToPar += rToPar;
+        } else if (i === numComplete && !isMC && !isWD && !finishedToday) {
+          // Current round — player is in progress
+          if (inProgress && tourneyToPar !== null) {
+            roundData[rKey] = {
+              strokes: null,
+              toPar:   tourneyToPar - cumToPar, // current-round to-par = tournament total minus completed rounds
+              thru,
+              status:  'inprogress'
+            };
+          } else {
+            roundData[rKey] = { strokes: null, toPar: null, thru: null, status: 'notstarted' };
+          }
+        } else {
+          roundData[rKey] = { strokes: null, toPar: null, thru: null, status: 'notstarted' };
+        }
+      }
+
+      // Track worst to-par in field for auto-penalty
+      const r3d = roundData.r3, r4d = roundData.r4;
+      if (r3d?.status === 'complete' && r3d.toPar !== null)
+        worstR3ToPar = worstR3ToPar === null ? r3d.toPar : Math.max(worstR3ToPar, r3d.toPar);
+      if (r4d?.status === 'complete' && r4d.toPar !== null)
+        worstR4ToPar = worstR4ToPar === null ? r4d.toPar : Math.max(worstR4ToPar, r4d.toPar);
+
+      // Only save pool golfers
+      const poolName = [...poolGolfers].find(g => g.toLowerCase() === name.toLowerCase());
+      if (poolName) appData.scores[poolName] = roundData;
     }
 
-    // Auto-calculate worst score in field for penalty (only if we have data)
-    if (fieldR3.length) appData.penalties.r3 = Math.max(...fieldR3);
-    if (fieldR4.length) appData.penalties.r4 = Math.max(...fieldR4);
+    if (worstR3ToPar !== null) appData.penalties.r3 = worstR3ToPar;
+    if (worstR4ToPar !== null) appData.penalties.r4 = worstR4ToPar;
 
     appData.lastSync   = new Date().toISOString();
     appData.syncStatus = `ok — ${event.name || 'tournament'}`;
