@@ -20,7 +20,7 @@ const TEAM_PICKS = {
   Drew:    ['Xander Schauffele', 'Justin Rose', '', '', ''],
   Andy:    ['J.J. Spaun', 'Matthew Fitzpatrick', '', '', ''],
   Tyreese: ['Collin Morikawa', 'Ben Griffin', '', '', ''],
-  Jonny:   ['', '', '', '', ''],
+  Jonny:   ['Chris Gotterup', 'Tommy Fleetwood', '', '', ''],
 };
 
 const DEFAULT_DATA = {
