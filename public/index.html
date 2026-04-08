@@ -194,7 +194,7 @@
 <div id="sync-bar">
   <span class="sync-dot" id="sync-dot"></span>
   <span id="sync-text">Loading…</span>
-  <span id="refresh-countdown" style="color:#6aab7a;font-size:0.68rem"></span>
+  <span style="color:#6aab7a;font-size:0.68rem">· refreshes every 60s</span>
 </div>
 
 <nav>
@@ -318,10 +318,8 @@ let penalties = { r3: null, r4: null };
 let lastSync  = null;
 let syncStatus = null;
 
-let refreshTimer    = null;
-let countdownTimer  = null;
-let secondsToRefresh = 60;
-let activeTab = 'leaderboard';
+let refreshTimer = null;
+let activeTab    = 'leaderboard';
 
 // ══════════════════════════════════════════════════════════════════════
 // DATA LOADING
@@ -354,25 +352,14 @@ async function init() {
 // AUTO REFRESH
 // ══════════════════════════════════════════════════════════════════════
 function startAutoRefresh() {
-  secondsToRefresh = 60;
-  if (refreshTimer)   clearInterval(refreshTimer);
-  if (countdownTimer) clearInterval(countdownTimer);
-
+  if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(async () => {
     if (activeTab === 'admin') return; // don't clobber admin edits
     await loadData();
     if (activeTab === 'leaderboard') renderLeaderboard();
     if (activeTab === 'teams')       renderTeams();
     updateSyncBar();
-    secondsToRefresh = 60;
   }, 60 * 1000);
-
-  countdownTimer = setInterval(() => {
-    if (activeTab === 'admin') return;
-    secondsToRefresh--;
-    const el = document.getElementById('refresh-countdown');
-    if (el) el.textContent = `· refreshes in ${secondsToRefresh}s`;
-  }, 1000);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -436,8 +423,6 @@ function showTab(name, btn) {
   if (name === 'leaderboard') renderLeaderboard();
   if (name === 'teams')       renderTeams();
   if (name === 'admin')       renderAdmin();
-  const countdown = document.getElementById('refresh-countdown');
-  if (countdown) countdown.textContent = name === 'admin' ? '· paused while editing' : '';
 }
 
 // ══════════════════════════════════════════════════════════════════════
