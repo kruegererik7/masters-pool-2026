@@ -11,8 +11,8 @@ const MEMBERS = ['Danny','Tony','Hugo','Zach','Diego','Erik','Drew','Andy','Tyre
 // ── Team picks — update here and redeploy to change ───────────────────
 // Note: Ludvig Åberg uses special Å character to match ESPN exactly
 const TEAM_PICKS = {
-  Danny:   ['Scottie Scheffler', '', '', '', ''],
-  Tony:    ['Ludvig \u00c5berg', 'Patrick Cantlay', '', '', ''],
+  Danny:   ['Scottie Scheffler', 'Sepp Straka', 'Adam Scott', '', ''],
+  Tony:    ['Ludvig \u00c5berg', 'Patrick Cantlay', 'Sungjae Im', '', ''],
   Hugo:    ['Bryson DeChambeau', 'Viktor Hovland', '', '', ''],
   Zach:    ['Rory McIlroy', 'Min Woo Lee', '', '', ''],
   Diego:   ['Cameron Young', 'Akshay Bhatia', '', '', ''],
