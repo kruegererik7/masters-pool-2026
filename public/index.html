@@ -92,16 +92,15 @@
     .lb-member-row:hover td { background: var(--light-green) !important; }
     .chevron { display: inline-block; margin-right: 8px; font-size: 0.65rem; color: var(--muted); transition: transform 0.2s; vertical-align: middle; }
     .chevron.open { transform: rotate(90deg); }
-    .lb-expand-row td { padding: 0 !important; background: #f7fbf7 !important; border-bottom: 2px solid var(--gold) !important; }
-    .lb-expand-inner { display: none; padding: 10px 16px 14px 48px; }
-    .lb-expand-inner.open { display: block; }
 
-    .expand-golfer-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    .expand-golfer-table th { background: transparent; color: var(--muted); font-size: 0.68rem; letter-spacing: 1px; padding: 4px 10px; border-bottom: 1px solid #ddd; text-align: center; }
-    .expand-golfer-table th:first-child { text-align: left; }
-    .expand-golfer-table td { padding: 5px 10px; border-bottom: 1px solid #eef0ee; text-align: center; font-size: 0.82rem; color: var(--text); background: transparent; white-space: nowrap; }
-    .expand-golfer-table td:first-child { text-align: left; font-weight: 500; }
-    .expand-golfer-table tr:last-child td { border-bottom: none; }
+    /* Sticky header */
+    thead th { position: sticky; top: 0; z-index: 5; }
+
+    /* Golfer sub-rows */
+    .golfer-sub-row td { background: #f4faf4; font-size: 0.82rem; border-bottom: 1px solid #e8f0e8; padding: 6px 14px; }
+    .golfer-sub-row:last-of-type td { border-bottom: 2px solid #c8e6c9; }
+    .golfer-sub-row .golfer-name { padding-left: 36px; font-style: italic; color: #444; text-align: left; }
+    .golfer-sub-row .penalty-row-cell { font-size: 0.72rem; color: var(--red); font-style: italic; text-align: left; padding-left: 36px; }
 
     .g-score-counting      { color: var(--green); font-weight: bold; }
     .g-score-strikethrough { color: #bbb; text-decoration: line-through; }
@@ -452,8 +451,8 @@ function renderLeaderboard() {
     const tieCount    = standings.filter(x => x.total !== null && x.rank === s.rank).length;
     const posLabel    = s.rank !== null ? (tieCount > 1 ? 'T' + s.rank : s.rank) : '—';
 
-    return `
-      <tr class="lb-member-row" onclick="toggleExpand('expand-${s.m}', this)">
+    const memberRow = `
+      <tr class="lb-member-row" onclick="toggleExpand('${s.m}')">
         <td class="pos ${posClass(s.rank)}">${posLabel}</td>
         <td class="member-name"><span class="chevron" id="chev-${s.m}">▶</span>${s.m}</td>
         <td>${fmtScore(s.r1)}</td>
@@ -461,14 +460,10 @@ function renderLeaderboard() {
         <td>${s.r3 !== null ? (r3IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${s.r3}*</span>` : s.r3) : fmtScore(null)}</td>
         <td>${s.r4 !== null ? (r4IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${s.r4}*</span>` : s.r4) : fmtScore(null)}</td>
         <td class="score-total">${fmtScore(s.total)}</td>
-      </tr>
-      <tr class="lb-expand-row">
-        <td colspan="7">
-          <div class="lb-expand-inner" id="expand-${s.m}">
-            ${buildExpandHTML(s.m)}
-          </div>
-        </td>
       </tr>`;
+
+    const golferRows = buildGolferSubRows(s.m);
+    return memberRow + golferRows;
   }).join('');
 
   // Header badge — only update the badge span, never the full header (preserves the Expand All button)
@@ -496,73 +491,64 @@ function renderLeaderboard() {
 // ══════════════════════════════════════════════════════════════════════
 // EXPAND / COLLAPSE
 // ══════════════════════════════════════════════════════════════════════
-function toggleExpand(id, row) {
-  const panel = document.getElementById(id);
-  const chev  = row.querySelector('.chevron');
-  const isOpen = panel.classList.contains('open');
-  panel.classList.toggle('open', !isOpen);
+function toggleExpand(member) {
+  const rows   = document.querySelectorAll(`.golfer-sub-row[data-member="${member}"]`);
+  const chev   = document.getElementById(`chev-${member}`);
+  const isOpen = chev.classList.contains('open');
+  rows.forEach(r => r.style.display = isOpen ? 'none' : '');
   chev.classList.toggle('open', !isOpen);
 }
 
 function toggleExpandAll() {
-  const allPanels = document.querySelectorAll('.lb-expand-inner');
-  const anyOpen   = [...allPanels].some(p => p.classList.contains('open'));
-  const open      = !anyOpen;
-  allPanels.forEach(p => p.classList.toggle('open', open));
+  const allRows = document.querySelectorAll('.golfer-sub-row');
+  const anyOpen = [...allRows].some(r => r.style.display !== 'none');
+  const open    = !anyOpen;
+  allRows.forEach(r => r.style.display = open ? '' : 'none');
   document.querySelectorAll('.chevron').forEach(c => c.classList.toggle('open', open));
   document.getElementById('expand-all-btn').textContent = open ? 'COLLAPSE ALL' : 'EXPAND ALL';
 }
 
-function buildExpandHTML(member) {
+function buildGolferSubRows(member) {
   const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
-  if (!picks.length) return '<p style="color:#ccc;font-size:0.8rem;padding:8px 0">No picks entered yet.</p>';
+  if (!picks.length) return '';
 
-  const mc      = mcCount(member);
-  const penalty = mc >= 2;
+  const penalty = mcCount(member) >= 2;
   const cntR3   = countingPicks(member, 'r3');
   const cntR4   = countingPicks(member, 'r4');
 
-  const penaltyNote = penalty
-    ? `<tr><td colspan="5" class="g-penalty-note">⚠ 2+ players missed cut — penalty score applied for R3 &amp; R4</td></tr>`
-    : '';
+  const fmtWeekday = v =>
+    v === null ? `<span class="g-score-null">—</span>` : `<span class="g-score-counting">${v}</span>`;
+
+  const fmtWeekend = (p, v, countingSet) => {
+    const isMC = missedCut(p);
+    if (isMC)      return `<span class="g-score-mc">MC</span>`;
+    if (penalty)   return v === null ? `<span class="g-score-null">—</span>` : `<span class="g-score-strikethrough">${v}</span>`;
+    if (v === null) return `<span class="g-score-null">—</span>`;
+    return countingSet.has(p) ? `<span class="g-score-counting">${v}</span>` : `<span class="g-score-strikethrough">${v}</span>`;
+  };
 
   const rows = picks.map(p => {
-    const r1 = getRound(p, 'r1');
-    const r2 = getRound(p, 'r2');
-    const r3 = getRound(p, 'r3');
-    const r4 = getRound(p, 'r4');
     const isMC = missedCut(p);
-
-    const fmtWeekday = v =>
-      v === null ? `<span class="g-score-null">—</span>` :
-      `<span class="g-score-counting">${v}</span>`;
-
-    const fmtWeekend = (v, countingSet) => {
-      if (isMC)     return `<span class="g-score-mc">MC</span>`;
-      if (penalty)  return v === null ? `<span class="g-score-null">—</span>` : `<span class="g-score-strikethrough">${v}</span>`;
-      if (v === null) return `<span class="g-score-null">—</span>`;
-      return countingSet.has(p)
-        ? `<span class="g-score-counting">${v}</span>`
-        : `<span class="g-score-strikethrough">${v}</span>`;
-    };
-
     return `
-      <tr>
-        <td>${p}${isMC ? ' <span style="font-size:0.65rem;color:#bbb;font-style:italic">(MC)</span>' : ''}</td>
-        <td>${fmtWeekday(r1)}</td>
-        <td>${fmtWeekday(r2)}</td>
-        <td>${fmtWeekend(r3, cntR3)}</td>
-        <td>${fmtWeekend(r4, cntR4)}</td>
+      <tr class="golfer-sub-row" data-member="${member}" style="display:none">
+        <td></td>
+        <td class="golfer-name">${p}${isMC ? ' <span style="font-size:0.68rem;color:#bbb">(MC)</span>' : ''}</td>
+        <td>${fmtWeekday(getRound(p,'r1'))}</td>
+        <td>${fmtWeekday(getRound(p,'r2'))}</td>
+        <td>${fmtWeekend(p, getRound(p,'r3'), cntR3)}</td>
+        <td>${fmtWeekend(p, getRound(p,'r4'), cntR4)}</td>
+        <td></td>
       </tr>`;
   }).join('');
 
-  return `
-    <table class="expand-golfer-table">
-      <thead>
-        <tr><th>GOLFER</th><th>R1 THU</th><th>R2 FRI</th><th>R3 SAT</th><th>R4 SUN</th></tr>
-      </thead>
-      <tbody>${rows}${penaltyNote}</tbody>
-    </table>`;
+  const penaltyRow = penalty ? `
+    <tr class="golfer-sub-row" data-member="${member}" style="display:none">
+      <td></td>
+      <td class="penalty-row-cell" colspan="5">⚠ 2+ players missed cut — penalty score applied for R3 &amp; R4</td>
+      <td></td>
+    </tr>` : '';
+
+  return rows + penaltyRow;
 }
 
 // ══════════════════════════════════════════════════════════════════════
