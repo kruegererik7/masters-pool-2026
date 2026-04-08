@@ -8,8 +8,23 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 
 const MEMBERS = ['Danny','Tony','Hugo','Zach','Diego','Erik','Drew','Andy','Tyreese','Jonny'];
 
+// ── Team picks — update here and redeploy to change ───────────────────
+// Note: Ludvig Åberg uses special Å character to match ESPN exactly
+const TEAM_PICKS = {
+  Danny:   ['Scottie Scheffler', '', '', '', ''],
+  Tony:    ['Ludvig \u00c5berg', 'Patrick Cantlay', '', '', ''],
+  Hugo:    ['Bryson DeChambeau', 'Viktor Hovland', '', '', ''],
+  Zach:    ['Rory McIlroy', 'Min Woo Lee', '', '', ''],
+  Diego:   ['Cameron Young', 'Akshay Bhatia', '', '', ''],
+  Erik:    ['Jon Rahm', 'Hideki Matsuyama', '', '', ''],
+  Drew:    ['Xander Schauffele', 'Justin Rose', '', '', ''],
+  Andy:    ['J.J. Spaun', 'Matthew Fitzpatrick', '', '', ''],
+  Tyreese: ['Collin Morikawa', 'Ben Griffin', '', '', ''],
+  Jonny:   ['', '', '', '', ''],
+};
+
 const DEFAULT_DATA = {
-  teams:      Object.fromEntries(MEMBERS.map(m => [m, ['','','','','']])),
+  teams:      TEAM_PICKS,
   scores:     {},
   penalties:  { r3: null, r4: null },
   lastSync:   null,
@@ -30,7 +45,10 @@ function saveData() {
   catch (e) { console.error('Save error:', e.message); }
 }
 
-let appData = loadData();
+let appData  = loadData();
+// Always apply latest picks from code (survives redeploys)
+appData.teams = TEAM_PICKS;
+saveData();
 
 // ── ESPN Sync ─────────────────────────────────────────────────────────
 const ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/golf/leaderboard?league=pga';

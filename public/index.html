@@ -200,7 +200,6 @@
 <nav>
   <button class="active" onclick="showTab('leaderboard', this)">LEADERBOARD</button>
   <button onclick="showTab('teams', this)">TEAMS</button>
-  <button onclick="showTab('admin', this)">ADMIN</button>
 </nav>
 
 <main>
@@ -242,67 +241,6 @@
     <div id="teams-grid" class="teams-grid"></div>
   </div>
 
-  <!-- ADMIN -->
-  <div id="tab-admin" class="tab-content">
-
-    <!-- Sync Status -->
-    <div class="card">
-      <div class="card-header">ESPN LIVE SYNC</div>
-      <div class="admin-section">
-        <p class="admin-note">
-          Scores are pulled automatically from ESPN every <strong>5 minutes</strong> during the tournament.
-          The penalty score (worst round in field) is also calculated automatically.
-          Use the button below to force an immediate sync, or override scores manually in the section below.
-        </p>
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:8px">
-          <button class="btn" id="sync-btn" onclick="forceSync()">⟳ SYNC NOW</button>
-          <span id="sync-detail" style="font-size:0.8rem;color:var(--muted)"></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Manual Score Override -->
-    <div class="card">
-      <div class="card-header">MANUAL SCORE OVERRIDE</div>
-      <div class="admin-section">
-        <p class="admin-note">
-          Scores sync automatically from ESPN. Only use this if ESPN data is missing or wrong.
-          Enter stroke totals (e.g. <strong>71</strong>). Type <strong>MC</strong> in R3 to mark missed cut — R4 auto-fills.
-        </p>
-        <div id="score-entry-area"></div>
-
-        <h3 style="margin-top:20px">WEEKEND PENALTY SCORE</h3>
-        <p class="admin-note">Worst individual round score in the entire field (auto-calculated from ESPN, override if needed).</p>
-        <div class="penalty-grid">
-          <div class="field-group">
-            <label>Saturday (R3) Penalty</label>
-            <input type="number" id="penalty-r3" placeholder="auto" />
-          </div>
-          <div class="field-group">
-            <label>Sunday (R4) Penalty</label>
-            <input type="number" id="penalty-r4" placeholder="auto" />
-          </div>
-        </div>
-
-        <button class="btn" onclick="saveScores()">SAVE OVERRIDES</button>
-        <span class="save-ok"  id="score-save-ok"></span>
-        <span class="save-err" id="score-save-err"></span>
-      </div>
-    </div>
-
-    <!-- Teams Setup -->
-    <div class="card">
-      <div class="card-header">TEAM PICKS SETUP</div>
-      <div class="admin-section">
-        <p class="admin-note">Enter each pool member's 5 golfer picks. Use the golfer's full name <strong>exactly</strong> as it appears on ESPN (e.g. "Scottie Scheffler").</p>
-        <div class="teams-setup-grid" id="teams-setup-area"></div>
-        <button class="btn" onclick="saveTeams()">SAVE TEAMS</button>
-        <span class="save-ok"  id="teams-save-ok"></span>
-        <span class="save-err" id="teams-save-err"></span>
-      </div>
-    </div>
-
-  </div>
 
 </main>
 
@@ -354,7 +292,6 @@ async function init() {
 function startAutoRefresh() {
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(async () => {
-    if (activeTab === 'admin') return; // don't clobber admin edits
     await loadData();
     if (activeTab === 'leaderboard') renderLeaderboard();
     if (activeTab === 'teams')       renderTeams();
@@ -384,31 +321,6 @@ function updateSyncBar() {
     text.textContent = 'Connecting to ESPN…';
   }
 
-  const detail = document.getElementById('sync-detail');
-  if (detail) detail.textContent = syncStatus || '';
-}
-
-// ══════════════════════════════════════════════════════════════════════
-// FORCE SYNC
-// ══════════════════════════════════════════════════════════════════════
-async function forceSync() {
-  const btn = document.getElementById('sync-btn');
-  btn.disabled = true;
-  btn.textContent = '⟳ SYNCING…';
-  try {
-    const res  = await fetch('/api/sync', { method: 'POST' });
-    const data = await res.json();
-    syncStatus = data.syncStatus;
-    lastSync   = data.lastSync;
-    await loadData();
-    renderLeaderboard();
-    updateSyncBar();
-    if (activeTab === 'admin') renderAdmin();
-  } catch (e) {
-    console.error('Force sync error:', e);
-  }
-  btn.disabled = false;
-  btn.textContent = '⟳ SYNC NOW';
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -422,7 +334,6 @@ function showTab(name, btn) {
   activeTab = name;
   if (name === 'leaderboard') renderLeaderboard();
   if (name === 'teams')       renderTeams();
-  if (name === 'admin')       renderAdmin();
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -689,129 +600,6 @@ function renderTeams() {
   }).join('');
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// ADMIN
-// ══════════════════════════════════════════════════════════════════════
-function renderAdmin() {
-  renderScoreEntry();
-  renderTeamsSetup();
-  updateSyncBar();
-  document.getElementById('penalty-r3').value = penalties.r3 ?? '';
-  document.getElementById('penalty-r4').value = penalties.r4 ?? '';
-}
-
-function renderScoreEntry() {
-  const golfers = allGolfers();
-  const area    = document.getElementById('score-entry-area');
-  if (!golfers.length) {
-    area.innerHTML = '<p class="admin-note" style="color:#bbb">Set up team picks first — golfer names will appear here.</p>';
-    return;
-  }
-  area.innerHTML = `
-    <table class="score-table" style="margin-bottom:16px">
-      <thead>
-        <tr>
-          <th style="text-align:left;min-width:160px">GOLFER</th>
-          <th>R1 (THU)</th><th>R2 (FRI)</th><th>R3 (SAT)</th><th>R4 (SUN)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${golfers.map(g => {
-          const gs = scores[g] || {};
-          return `<tr><td>${g}</td>${['r1','r2','r3','r4'].map(r => {
-            const v = gs[r];
-            const display = (v === null || v === undefined) ? '' : v;
-            return `<td><input type="text" data-golfer="${g}" data-round="${r}"
-              value="${display}" placeholder="—"
-              class="${String(display).toUpperCase() === 'MC' ? 'mc-input' : ''}"
-              oninput="onScoreInput(this)" /></td>`;
-          }).join('')}</tr>`;
-        }).join('')}
-      </tbody>
-    </table>`;
-}
-
-function onScoreInput(el) {
-  el.classList.toggle('mc-input', el.value.toUpperCase() === 'MC');
-  if (el.dataset.round === 'r3' && el.value.toUpperCase() === 'MC') {
-    const r4el = document.querySelector(`[data-golfer="${el.dataset.golfer}"][data-round="r4"]`);
-    if (r4el) { r4el.value = 'MC'; r4el.classList.add('mc-input'); }
-  }
-}
-
-async function saveScores() {
-  allGolfers().forEach(g => {
-    if (!scores[g]) scores[g] = {};
-    ['r1','r2','r3','r4'].forEach(r => {
-      const el = document.querySelector(`[data-golfer="${g}"][data-round="${r}"]`);
-      if (!el) return;
-      const raw = el.value.trim();
-      if (!raw || raw === '—')        scores[g][r] = null;
-      else if (raw.toUpperCase() === 'MC') scores[g][r] = 'MC';
-      else { const n = parseInt(raw, 10); scores[g][r] = isNaN(n) ? null : n; }
-    });
-  });
-  const p3 = parseInt(document.getElementById('penalty-r3').value, 10);
-  const p4 = parseInt(document.getElementById('penalty-r4').value, 10);
-  penalties.r3 = isNaN(p3) ? null : p3;
-  penalties.r4 = isNaN(p4) ? null : p4;
-
-  try {
-    const res = await fetch('/api/scores', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scores, penalties })
-    });
-    if (!res.ok) throw new Error('Server error');
-    flash('score-save-ok', 'Saved ✓', 'score-save-err');
-  } catch (e) {
-    flash('score-save-err', 'Save failed ✗', 'score-save-ok');
-  }
-}
-
-function renderTeamsSetup() {
-  document.getElementById('teams-setup-area').innerHTML = MEMBERS.map(member => `
-    <div class="team-setup-card">
-      <h4>${member.toUpperCase()}</h4>
-      <div class="picks-grid">
-        ${[0,1,2,3,4].map(i => `
-          <div>
-            <div class="pick-label">Pick ${i+1}</div>
-            <input type="text" id="tp_${member}_${i}"
-              value="${(teams[member] || [])[i] || ''}"
-              placeholder="Golfer name" />
-          </div>`).join('')}
-      </div>
-    </div>`).join('');
-}
-
-async function saveTeams() {
-  MEMBERS.forEach(member => {
-    teams[member] = [0,1,2,3,4].map(i => {
-      const el = document.getElementById(`tp_${member}_${i}`);
-      return el ? el.value.trim() : '';
-    });
-  });
-  try {
-    const res = await fetch('/api/teams', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ teams })
-    });
-    if (!res.ok) throw new Error('Server error');
-    flash('teams-save-ok', 'Saved ✓', 'teams-save-err');
-    renderScoreEntry();
-  } catch (e) {
-    flash('teams-save-err', 'Save failed ✗', 'teams-save-ok');
-  }
-}
-
-function flash(showId, msg, clearId) {
-  const el = document.getElementById(showId);
-  el.textContent = msg;
-  if (clearId) document.getElementById(clearId).textContent = '';
-  setTimeout(() => el.textContent = '', 3000);
-}
 
 // ── INIT ──
 init();
