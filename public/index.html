@@ -207,7 +207,10 @@
   <!-- LEADERBOARD -->
   <div id="tab-leaderboard" class="tab-content active">
     <div class="card">
-      <div class="card-header" id="standings-header">POOL STANDINGS</div>
+      <div class="card-header" id="standings-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>POOL STANDINGS</span>
+        <button id="expand-all-btn" onclick="toggleExpandAll()" style="background:transparent;border:1px solid var(--gold);color:var(--gold);padding:3px 10px;border-radius:4px;font-size:0.7rem;letter-spacing:1px;cursor:pointer;font-family:inherit;">EXPAND ALL</button>
+      </div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
       <table>
         <thead>
@@ -440,6 +443,9 @@ function renderLeaderboard() {
 
   const posClass = r => r === 1 ? 'pos-1' : r === 2 ? 'pos-2' : r === 3 ? 'pos-3' : '';
 
+  const expandBtn = document.getElementById('expand-all-btn');
+  if (expandBtn) expandBtn.textContent = 'EXPAND ALL';
+
   document.getElementById('leaderboard-body').innerHTML = standings.map(s => {
     const r3IsPenalty = mcCount(s.m) >= 2 && s.r3 !== null;
     const r4IsPenalty = mcCount(s.m) >= 2 && s.r4 !== null;
@@ -493,6 +499,15 @@ function toggleExpand(id, row) {
   const isOpen = panel.classList.contains('open');
   panel.classList.toggle('open', !isOpen);
   chev.classList.toggle('open', !isOpen);
+}
+
+function toggleExpandAll() {
+  const allPanels = document.querySelectorAll('.lb-expand-inner');
+  const anyOpen   = [...allPanels].some(p => p.classList.contains('open'));
+  const open      = !anyOpen;
+  allPanels.forEach(p => p.classList.toggle('open', open));
+  document.querySelectorAll('.chevron').forEach(c => c.classList.toggle('open', open));
+  document.getElementById('expand-all-btn').textContent = open ? 'COLLAPSE ALL' : 'EXPAND ALL';
 }
 
 function buildExpandHTML(member) {
