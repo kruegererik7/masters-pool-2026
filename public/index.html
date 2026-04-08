@@ -174,6 +174,26 @@
     .g-score-null          { color: #ddd; }
     .g-penalty-note        { font-size: 0.72rem; color: var(--red); font-style: italic; padding: 4px 10px; }
 
+    /* ── FULL LEADERBOARD ── */
+    #full-lb-table td { background: #e8e8e8; height: 44px; font-size: 0.88rem; }
+    #full-lb-table tr:nth-child(even) td { background: #e0e0e0; }
+    #full-lb-table .flb-pos  { font-weight: 700; color: var(--green); text-align: left; }
+    #full-lb-table .flb-name { font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.88rem; text-align: left; }
+    #full-lb-table .flb-name.pool-member { color: var(--green); }
+    #full-lb-table .flb-name.pool-member::after { content: ' ★'; font-size: 0.7rem; color: var(--gold); }
+    #full-lb-table .flb-country { font-size: 0.68rem; color: #777; letter-spacing: 1px; text-align: left; padding-left: 0; }
+    .to-par-pill { display: inline-block; min-width: 46px; padding: 3px 8px; border-radius: 3px; font-weight: 700; font-size: 0.88rem; text-align: center; }
+    .to-par-under { background: var(--green); color: white; }
+    .to-par-over  { background: #c0392b;      color: white; }
+    .to-par-even  { background: #555;          color: white; }
+    .to-par-mc    { background: transparent;  color: #aaa; font-style: italic; font-weight: normal; font-size: 0.8rem; }
+    .today-under  { color: var(--green); font-weight: 700; }
+    .today-over   { color: #c0392b;      font-weight: 700; }
+    .today-even   { color: #555; }
+    .flb-round    { color: #444; }
+    .flb-round.null-score { color: #ccc; }
+    .cut-divider td { background: var(--green) !important; color: white !important; font-size: 0.68rem; letter-spacing: 2px; text-align: center !important; padding: 4px !important; height: auto !important; }
+
     /* ── TEAMS GRID ── */
     .teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; padding: 18px; }
     .team-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -265,6 +285,7 @@
 <nav>
   <button class="active" onclick="showTab('leaderboard', this)">LEADERBOARD</button>
   <button onclick="showTab('teams', this)">TEAMS</button>
+  <button onclick="showTab('full-lb', this)">FULL LEADERBOARD</button>
 </nav>
 
 <main>
@@ -312,6 +333,38 @@
     <div id="teams-grid" class="teams-grid"></div>
   </div>
 
+  <!-- FULL LEADERBOARD -->
+  <div id="tab-full-lb" class="tab-content">
+    <div class="card" id="full-lb-card">
+      <div class="lb-header-bar" id="full-lb-header">
+        <span class="lb-title" id="full-lb-title">MASTERS LEADERBOARD</span>
+        <span style="font-size:0.68rem;color:rgba(255,255,255,0.6)" id="full-lb-updated"></span>
+      </div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <table id="full-lb-table">
+          <thead>
+            <tr>
+              <th style="width:44px">POS</th>
+              <th>PLAYER</th>
+              <th style="width:44px"></th>
+              <th>TOTAL</th>
+              <th>TODAY</th>
+              <th>R1</th>
+              <th>R2</th>
+              <th>R3</th>
+              <th>R4</th>
+            </tr>
+          </thead>
+          <tbody id="full-lb-body">
+            <tr><td colspan="9" style="text-align:center;color:#aaa;padding:32px;background:white;">Loading leaderboard…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:8px 16px;font-size:0.68rem;color:#aaa;background:#f8f8f8;border-top:1px solid #eee;">
+        ★ = Pool member &nbsp;·&nbsp; Data from ESPN &nbsp;·&nbsp; Refreshes every 3 min
+      </div>
+    </div>
+  </div>
 
 </main>
 
@@ -405,6 +458,7 @@ function showTab(name, btn) {
   activeTab = name;
   if (name === 'leaderboard') renderLeaderboard();
   if (name === 'teams')       renderTeams();
+  if (name === 'full-lb')     renderFullLeaderboard();
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -673,6 +727,92 @@ function renderTeams() {
   }).join('');
 }
 
+
+// ══════════════════════════════════════════════════════════════════════
+// FULL LEADERBOARD
+// ══════════════════════════════════════════════════════════════════════
+let fullLbData = null;
+
+function toParClass(str) {
+  if (!str || str === '-') return 'to-par-even';
+  if (str === 'E')  return 'to-par-even';
+  if (str === 'MC' || str === 'WD') return 'to-par-mc';
+  return str.startsWith('-') ? 'to-par-under' : 'to-par-over';
+}
+function todayClass(str) {
+  if (!str || str === 'E') return 'today-even';
+  return str.startsWith('-') ? 'today-under' : 'today-over';
+}
+
+async function renderFullLeaderboard() {
+  const tbody   = document.getElementById('full-lb-body');
+  const title   = document.getElementById('full-lb-title');
+  const updated = document.getElementById('full-lb-updated');
+
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:32px;background:white;">Loading…</td></tr>';
+
+  try {
+    const res  = await fetch('/api/full-leaderboard');
+    const data = await res.json();
+    fullLbData = data;
+
+    if (data.notStarted || !data.players?.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:32px;background:white;">Tournament has not started yet — check back Thursday!</td></tr>';
+      return;
+    }
+
+    if (data.error) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#c00;padding:32px;background:white;">Error loading leaderboard: ${data.error}</td></tr>`;
+      return;
+    }
+
+    // Update header
+    const roundInfo = [data.roundLabel, data.roundStatus].filter(Boolean).join(' · ');
+    title.textContent = (data.eventName || 'Masters Tournament').toUpperCase() + (roundInfo ? ' — ' + roundInfo.toUpperCase() : '');
+    if (data.lastFetched) {
+      const t = new Date(data.lastFetched);
+      updated.textContent = 'Updated ' + t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    const poolSet     = new Set((data.poolGolfers || []).map(n => n.toLowerCase()));
+    const fmtRound    = v => v !== null ? v : '<span class="null-score">—</span>';
+    const fmtToday    = (strokes, toPar) => {
+      if (!strokes) return '<span style="color:#ccc">—</span>';
+      return `${strokes} <span class="${todayClass(toPar)}" style="font-size:0.78rem">${toPar || ''}</span>`;
+    };
+
+    let rows = '';
+    let cutInserted = false;
+
+    data.players.forEach(p => {
+      // Insert cut line divider before first MC player
+      if (!cutInserted && p.isMC) {
+        cutInserted = true;
+        rows += `<tr class="cut-divider"><td colspan="9">— CUT —</td></tr>`;
+      }
+
+      const isPool  = poolSet.has(p.name.toLowerCase());
+      const posLabel = p.isMC ? 'MC' : p.isWD ? 'WD' : (p.pos || '');
+
+      rows += `
+        <tr>
+          <td class="flb-pos">${posLabel}</td>
+          <td class="flb-name ${isPool ? 'pool-member' : ''}">${p.name}</td>
+          <td class="flb-country">${p.country}</td>
+          <td><span class="to-par-pill ${toParClass(p.toPar)}">${p.toPar || 'E'}</span></td>
+          <td>${fmtToday(p.todayStrokes, p.todayToPar)}</td>
+          <td class="flb-round">${fmtRound(p.rounds[0])}</td>
+          <td class="flb-round">${fmtRound(p.rounds[1])}</td>
+          <td class="flb-round">${fmtRound(p.rounds[2])}</td>
+          <td class="flb-round">${fmtRound(p.rounds[3])}</td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = rows;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#c00;padding:32px;background:white;">Failed to load: ${e.message}</td></tr>`;
+  }
+}
 
 // ── INIT ──
 init();

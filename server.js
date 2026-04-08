@@ -163,4 +163,93 @@ app.post('/api/sync', async (_req, res) => {
   res.json({ ok: true, lastSync: appData.lastSync, syncStatus: appData.syncStatus });
 });
 
+// ── Full leaderboard proxy (all field players, cached 3 min) ──────────
+let fullLbCache     = null;
+let fullLbCacheTime = 0;
+const FULL_LB_TTL   = 3 * 60 * 1000;
+const AUGUSTA_PAR   = 72;
+
+function toParStr(strokes, roundsPlayed) {
+  if (!strokes || !roundsPlayed) return 'E';
+  const diff = strokes - (roundsPlayed * AUGUSTA_PAR);
+  return diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`;
+}
+
+app.get('/api/full-leaderboard', async (_req, res) => {
+  const now = Date.now();
+  if (fullLbCache && (now - fullLbCacheTime) < FULL_LB_TTL)
+    return res.json(fullLbCache);
+
+  try {
+    const r = await fetch(ESPN_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!r.ok) throw new Error(`ESPN HTTP ${r.status}`);
+    const json = await r.json();
+
+    const event       = json.events?.[0];
+    const competition = event?.competitions?.[0];
+    if (!competition) return res.json({ notStarted: true, players: [] });
+
+    const players = (competition.competitors || []).map(comp => {
+      const ls    = comp.linescores || [];
+      const stat  = comp.status?.type?.name || '';
+      const isMC  = stat === 'STATUS_MISSED_CUT' || stat === 'STATUS_CUT';
+      const isWD  = stat === 'STATUS_WITHDRAWN';
+
+      // Stroke total per round (>50 guards against to-par values)
+      const rounds = [0,1,2,3].map(i => {
+        const v = Number(ls[i]?.value);
+        return (!isNaN(v) && v > 50) ? v : null;
+      });
+
+      const validRounds  = rounds.filter(v => v !== null);
+      const totalStrokes = validRounds.reduce((a, b) => a + b, 0);
+
+      // Total to-par — prefer ESPN's shortDetail, fall back to calculating
+      let toPar = comp.status?.type?.shortDetail || '';
+      if (!toPar || toPar.toLowerCase().includes('hole') || toPar.toLowerCase() === 'in progress') {
+        toPar = isMC ? 'MC' : isWD ? 'WD' : validRounds.length ? toParStr(totalStrokes, validRounds.length) : '-';
+      }
+      if (toPar.toUpperCase() === 'MC' && isMC) toPar = 'MC';
+
+      // Today = most recently started round
+      let todayIdx = -1;
+      for (let i = 3; i >= 0; i--) { if (rounds[i] !== null) { todayIdx = i; break; } }
+      const todayStrokes = todayIdx >= 0 ? rounds[todayIdx] : null;
+      const todayToPar   = todayStrokes ? toParStr(todayStrokes, 1) : null;
+
+      return {
+        pos:          comp.status?.position?.displayName || '',
+        name:         comp.athlete?.displayName || '',
+        country:      comp.athlete?.flag?.alt || '',
+        toPar,
+        rounds,
+        todayStrokes,
+        todayToPar,
+        isMC,
+        isWD,
+        sortOrder:    comp.sortOrder ?? 9999,
+      };
+    });
+
+    players.sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const roundNum    = competition.status?.period || 0;
+    const roundLabels = ['', 'Round 1', 'Round 2', 'Round 3', 'Round 4'];
+
+    fullLbCache = {
+      eventName:   event.name || 'Masters Tournament',
+      roundLabel:  roundLabels[roundNum] || `Round ${roundNum}`,
+      roundStatus: competition.status?.type?.description || '',
+      lastFetched: new Date().toISOString(),
+      poolGolfers: [...getPoolGolfers()],
+      players,
+    };
+    fullLbCacheTime = now;
+    res.json(fullLbCache);
+  } catch (e) {
+    console.error('[FullLB]', e.message);
+    res.status(500).json({ error: e.message, players: [] });
+  }
+});
+
 app.listen(PORT, () => console.log(`Masters Pool running on port ${PORT}`));
