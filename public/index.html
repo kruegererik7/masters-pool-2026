@@ -207,9 +207,9 @@
   <!-- LEADERBOARD -->
   <div id="tab-leaderboard" class="tab-content active">
     <div class="card">
-      <div class="card-header" id="standings-header" style="display:flex;align-items:center;justify-content:space-between;">
-        <span>POOL STANDINGS</span>
-        <button id="expand-all-btn" onclick="toggleExpandAll()" style="background:transparent;border:1px solid var(--gold);color:var(--gold);padding:3px 10px;border-radius:4px;font-size:0.7rem;letter-spacing:1px;cursor:pointer;font-family:inherit;">EXPAND ALL</button>
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>POOL STANDINGS <span id="standings-badge"></span></span>
+        <button id="expand-all-btn" onclick="toggleExpandAll()" style="background:transparent;border:1px solid var(--gold);color:var(--gold);padding:3px 10px;border-radius:4px;font-size:0.7rem;letter-spacing:1px;cursor:pointer;font-family:inherit;flex-shrink:0;margin-left:10px;">EXPAND ALL</button>
       </div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
       <table>
@@ -471,20 +471,23 @@ function renderLeaderboard() {
       </tr>`;
   }).join('');
 
-  // Header badge
+  // Header badge — only update the badge span, never the full header (preserves the Expand All button)
   const golfers = allGolfers();
   const played  = golfers.some(g => scores[g]?.r1 !== null && scores[g]?.r1 !== undefined);
   const r4done  = golfers.some(g => typeof getRound(g,'r4') === 'number');
-  const header  = document.getElementById('standings-header');
-  if (!played) {
-    header.innerHTML = 'POOL STANDINGS <span class="round-badge badge-pending">AWAITING R1</span>';
-  } else if (r4done) {
-    header.innerHTML = 'POOL STANDINGS <span class="round-badge badge-final">FINAL</span>';
-  } else {
-    for (const [r, label] of [['r4','R4 LIVE'],['r3','R3 LIVE'],['r2','R2 LIVE'],['r1','R1 LIVE']]) {
-      if (golfers.some(g => typeof getRound(g, r) === 'number')) {
-        header.innerHTML = `POOL STANDINGS <span class="round-badge badge-live">${label}</span>`;
-        break;
+  const badge   = document.getElementById('standings-badge');
+  if (badge) {
+    if (!played) {
+      badge.innerHTML = '<span class="round-badge badge-pending">AWAITING R1</span>';
+    } else if (r4done) {
+      badge.innerHTML = '<span class="round-badge badge-final">FINAL</span>';
+    } else {
+      badge.innerHTML = '';
+      for (const [r, label] of [['r4','R4 LIVE'],['r3','R3 LIVE'],['r2','R2 LIVE'],['r1','R1 LIVE']]) {
+        if (golfers.some(g => typeof getRound(g, r) === 'number')) {
+          badge.innerHTML = `<span class="round-badge badge-live">${label}</span>`;
+          break;
+        }
       }
     }
   }
