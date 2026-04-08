@@ -13,13 +13,13 @@ const MEMBERS = ['Danny','Tony','Hugo','Zach','Diego','Erik','Drew','Andy','Tyre
 const TEAM_PICKS = {
   Danny:   ['Scottie Scheffler', 'Sepp Straka', 'Adam Scott', '', ''],
   Tony:    ['Ludvig \u00c5berg', 'Patrick Cantlay', 'Sungjae Im', '', ''],
-  Hugo:    ['Bryson DeChambeau', 'Viktor Hovland', '', '', ''],
-  Zach:    ['Rory McIlroy', 'Min Woo Lee', '', '', ''],
-  Diego:   ['Cameron Young', 'Akshay Bhatia', '', '', ''],
-  Erik:    ['Jon Rahm', 'Hideki Matsuyama', '', '', ''],
-  Drew:    ['Xander Schauffele', 'Justin Rose', '', '', ''],
-  Andy:    ['J.J. Spaun', 'Matthew Fitzpatrick', '', '', ''],
-  Tyreese: ['Collin Morikawa', 'Ben Griffin', '', '', ''],
+  Hugo:    ['Bryson DeChambeau', 'Viktor Hovland', 'Jordan Spieth', '', ''],
+  Zach:    ['Rory McIlroy', 'Min Woo Lee', 'Robert MacIntyre', '', ''],
+  Diego:   ['Cameron Young', 'Akshay Bhatia', 'Jake Knapp', '', ''],
+  Erik:    ['Jon Rahm', 'Hideki Matsuyama', 'Corey Conners', '', ''],
+  Drew:    ['Xander Schauffele', 'Justin Rose', 'Patrick Reed', '', ''],
+  Andy:    ['J.J. Spaun', 'Matthew Fitzpatrick', 'Jacob Bridgeman', '', ''],
+  Tyreese: ['Collin Morikawa', 'Ben Griffin', 'Michael Kim', '', ''],
   Jonny:   ['Chris Gotterup', 'Tommy Fleetwood', '', '', ''],
 };
 
