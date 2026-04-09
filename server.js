@@ -13,8 +13,8 @@ const MEMBERS = ['Danny','Tony','Hugo','Zach','Diego','Erik','Drew','Andy','Tyre
 const TEAM_PICKS = {
   Danny:   ['Scottie Scheffler', 'Sepp Straka', 'Adam Scott', 'Harris English', 'Jason Day'],
   Tony:    ['Ludvig \u00c5berg', 'Patrick Cantlay', 'Sungjae Im', 'Tony Finau', 'Shane Lowry'],
-  Hugo:    ['Bryson DeChambeau', 'Viktor Hovland', 'Jordan Spieth', 'Sam Burns', ''],
-  Zach:    ['Rory McIlroy', 'Min Woo Lee', 'Robert MacIntyre', 'Gary Woodland', ''],
+  Hugo:    ['Bryson DeChambeau', 'Viktor Hovland', 'Jordan Spieth', 'Sam Burns', 'Kurt Kitayama'],
+  Zach:    ['Rory McIlroy', 'Min Woo Lee', 'Robert MacIntyre', 'Gary Woodland', 'Nicolai H\u00f8jgaard'],
   Diego:   ['Cameron Young', 'Akshay Bhatia', 'Jake Knapp', 'Maverick McNealy', ''],
   Erik:    ['Jon Rahm', 'Hideki Matsuyama', 'Corey Conners', 'Justin Thomas', ''],
   Drew:    ['Xander Schauffele', 'Justin Rose', 'Patrick Reed', 'Brooks Koepka', ''],
@@ -221,6 +221,26 @@ function toParStr(strokes, roundsPlayed) {
   return diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`;
 }
 
+// Convert an ISO tee-time string to Central time with CDT/CST label
+function fmtTeeToCT(isoStr) {
+  if (!isoStr) return null;
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d)) return null;
+    const time = d.toLocaleTimeString('en-US', {
+      timeZone: 'America/Chicago',
+      hour:     'numeric',
+      minute:   '2-digit',
+      hour12:   true,
+    });
+    // Determine CDT vs CST (CDT = March–Nov, CST = Nov–Mar)
+    const month = d.toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'numeric' });
+    const m = parseInt(month);
+    const isDST = m >= 3 && m <= 11;
+    return `${time} ${isDST ? 'CDT' : 'CST'}`;
+  } catch { return null; }
+}
+
 app.get('/api/full-leaderboard', async (_req, res) => {
   const now = Date.now();
   if (fullLbCache && (now - fullLbCacheTime) < FULL_LB_TTL)
@@ -263,6 +283,11 @@ app.get('/api/full-leaderboard', async (_req, res) => {
       const todayStrokes = todayIdx >= 0 ? rounds[todayIdx] : null;
       const todayToPar   = todayStrokes ? toParStr(todayStrokes, 1) : null;
 
+      // Tee time (only relevant for players who haven't started)
+      const teeTimeCT = validRounds.length === 0 && !isMC && !isWD
+        ? fmtTeeToCT(comp.teeTime)
+        : null;
+
       return {
         pos:          comp.status?.position?.displayName || '',
         name:         comp.athlete?.displayName || '',
@@ -271,6 +296,7 @@ app.get('/api/full-leaderboard', async (_req, res) => {
         rounds,
         todayStrokes,
         todayToPar,
+        teeTimeCT,
         isMC,
         isWD,
         sortOrder:    comp.sortOrder ?? 9999,

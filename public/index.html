@@ -279,7 +279,6 @@
 <div id="sync-bar">
   <span class="sync-dot" id="sync-dot"></span>
   <span id="sync-text">Loading…</span>
-  <span style="color:#6aab7a;font-size:0.68rem">· refreshes every 60s</span>
 </div>
 
 <nav>
@@ -437,14 +436,10 @@ function updateSyncBar() {
   const isError = syncStatus?.startsWith('error');
   dot.className = 'sync-dot ' + (isOk ? 'ok' : isError ? 'error' : '');
 
-  const fmtTime = d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-  if (lastBrowserRefresh) {
-    const espnPart = lastSync
-      ? ` · ESPN synced ${fmtTime(new Date(lastSync))}`
-      : '';
-    const src = isOk ? 'Live from ESPN' : isError ? 'ESPN sync failed' : 'Connected';
-    text.textContent = `${src} · Page refreshed ${fmtTime(lastBrowserRefresh)}${espnPart} · refreshes every 60s`;
+  if (lastSync) {
+    const fmtTime = d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const src = isOk ? 'Live from ESPN' : isError ? 'ESPN sync failed — using last data' : 'Syncing…';
+    text.textContent = `${src} · ESPN synced ${fmtTime(new Date(lastSync))}`;
   } else {
     text.textContent = 'Connecting to ESPN…';
   }
@@ -869,12 +864,16 @@ async function renderFullLeaderboard() {
       const isPool  = poolSet.has(p.name.toLowerCase());
       const posLabel = p.isMC ? 'MC' : p.isWD ? 'WD' : (p.pos || '');
 
+      const totalCell = p.teeTimeCT
+        ? `<span style="font-size:0.78rem;color:#888;font-style:italic">${p.teeTimeCT}</span>`
+        : `<span class="to-par-pill ${toParClass(p.toPar)}">${p.toPar || 'E'}</span>`;
+
       rows += `
         <tr>
           <td class="flb-pos">${posLabel}</td>
           <td class="flb-name ${isPool ? 'pool-member' : ''}">${p.name}</td>
           <td class="flb-country">${p.country}</td>
-          <td><span class="to-par-pill ${toParClass(p.toPar)}">${p.toPar || 'E'}</span></td>
+          <td>${totalCell}</td>
           <td>${fmtToday(p.todayStrokes, p.todayToPar)}</td>
           <td class="flb-round">${fmtRound(p.rounds[0])}</td>
           <td class="flb-round">${fmtRound(p.rounds[1])}</td>
