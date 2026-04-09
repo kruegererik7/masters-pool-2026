@@ -11,15 +11,15 @@ const MEMBERS = ['Danny','Tony','Hugo','Zach','Diego','Erik','Drew','Andy','Tyre
 // ── Team picks — update here and redeploy to change ───────────────────
 // Note: Ludvig Åberg uses special Å character to match ESPN exactly
 const TEAM_PICKS = {
-  Danny:   ['Scottie Scheffler', 'Sepp Straka', 'Adam Scott', '', ''],
-  Tony:    ['Ludvig \u00c5berg', 'Patrick Cantlay', 'Sungjae Im', '', ''],
-  Hugo:    ['Bryson DeChambeau', 'Viktor Hovland', 'Jordan Spieth', '', ''],
-  Zach:    ['Rory McIlroy', 'Min Woo Lee', 'Robert MacIntyre', '', ''],
-  Diego:   ['Cameron Young', 'Akshay Bhatia', 'Jake Knapp', '', ''],
-  Erik:    ['Jon Rahm', 'Hideki Matsuyama', 'Corey Conners', '', ''],
-  Drew:    ['Xander Schauffele', 'Justin Rose', 'Patrick Reed', '', ''],
-  Andy:    ['J.J. Spaun', 'Matthew Fitzpatrick', 'Jacob Bridgeman', '', ''],
-  Tyreese: ['Collin Morikawa', 'Ben Griffin', 'Michael Kim', '', ''],
+  Danny:   ['Scottie Scheffler', 'Sepp Straka', 'Adam Scott', 'Harris English', 'Jason Day'],
+  Tony:    ['Ludvig \u00c5berg', 'Patrick Cantlay', 'Sungjae Im', 'Tony Finau', 'Shane Lowry'],
+  Hugo:    ['Bryson DeChambeau', 'Viktor Hovland', 'Jordan Spieth', 'Sam Burns', ''],
+  Zach:    ['Rory McIlroy', 'Min Woo Lee', 'Robert MacIntyre', 'Gary Woodland', ''],
+  Diego:   ['Cameron Young', 'Akshay Bhatia', 'Jake Knapp', 'Maverick McNealy', ''],
+  Erik:    ['Jon Rahm', 'Hideki Matsuyama', 'Corey Conners', 'Justin Thomas', ''],
+  Drew:    ['Xander Schauffele', 'Justin Rose', 'Patrick Reed', 'Brooks Koepka', ''],
+  Andy:    ['J.J. Spaun', 'Matthew Fitzpatrick', 'Jacob Bridgeman', 'Si Woo Kim', ''],
+  Tyreese: ['Collin Morikawa', 'Ben Griffin', 'Michael Kim', 'Harry Hall', ''],
   Jonny:   ['Chris Gotterup', 'Tommy Fleetwood', 'Russell Henley', 'Nico Echavarria', ''],
 };
 
