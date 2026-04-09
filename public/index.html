@@ -296,7 +296,7 @@
       <!-- Green header bar with title + expand button -->
       <div class="lb-header-bar">
         <span class="lb-title">POOL STANDINGS <span id="standings-badge"></span></span>
-        <button id="expand-all-btn" onclick="toggleExpandAll()">EXPAND ALL</button>
+        <button id="expand-all-btn" onclick="toggleExpandAll()">COLLAPSE ALL</button>
       </div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
       <table>
@@ -614,7 +614,7 @@ function renderLeaderboard() {
   const posClass = r => r === 1 ? 'pos-1' : r === 2 ? 'pos-2' : r === 3 ? 'pos-3' : '';
 
   const expandBtn = document.getElementById('expand-all-btn');
-  if (expandBtn) expandBtn.textContent = 'EXPAND ALL';
+  if (expandBtn) expandBtn.textContent = 'COLLAPSE ALL';
 
   document.getElementById('leaderboard-body').innerHTML = standings.map(s => {
     const r3IsPenalty = mcCount(s.m) >= 2 && s.r3 !== null;
@@ -625,7 +625,7 @@ function renderLeaderboard() {
     const memberRow = `
       <tr class="lb-member-row" onclick="toggleExpand('${s.m}')">
         <td class="pos ${posClass(s.rank)}">${posLabel}</td>
-        <td class="member-name"><span class="chevron" id="chev-${s.m}">▶</span>${s.m}</td>
+        <td class="member-name"><span class="chevron open" id="chev-${s.m}">▶</span>${s.m}</td>
         <td>${fmtScore(s.r1)}</td>
         <td>${fmtScore(s.r2)}</td>
         <td>${s.r3 !== null ? (r3IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${toParStr(s.r3)}*</span>` : fmtScore(s.r3)) : fmtScore(null)}</td>
@@ -713,7 +713,7 @@ function buildGolferSubRows(member) {
   const rows = picks.map(p => {
     const isMC = missedCut(p);
     return `
-      <tr class="golfer-sub-row" data-member="${member}" style="display:none">
+      <tr class="golfer-sub-row" data-member="${member}">
         <td></td>
         <td class="golfer-name">${p}${isMC ? ' <span style="font-size:0.68rem;color:#bbb">(MC)</span>' : ''}</td>
         <td>${fmtWeekday(getRound(p,'r1'))}</td>
@@ -725,7 +725,7 @@ function buildGolferSubRows(member) {
   }).join('');
 
   const penaltyRow = penalty ? `
-    <tr class="golfer-sub-row" data-member="${member}" style="display:none">
+    <tr class="golfer-sub-row" data-member="${member}">
       <td></td>
       <td class="penalty-row-cell" colspan="5">⚠ 2+ players missed cut — penalty score applied for R3 &amp; R4</td>
       <td></td>
