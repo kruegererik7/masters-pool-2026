@@ -18,8 +18,8 @@ const TEAM_PICKS = {
   Diego:   ['Cameron Young', 'Akshay Bhatia', 'Jake Knapp', 'Maverick McNealy', 'Cameron Smith'],
   Erik:    ['Jon Rahm', 'Hideki Matsuyama', 'Corey Conners', 'Justin Thomas', 'Tyrrell Hatton'],
   Drew:    ['Xander Schauffele', 'Justin Rose', 'Patrick Reed', 'Brooks Koepka', 'Marco Penge'],
-  Andy:    ['J.J. Spaun', 'Matthew Fitzpatrick', 'Jacob Bridgeman', 'Si Woo Kim', ''],
-  Tyreese: ['Collin Morikawa', 'Ben Griffin', 'Michael Kim', 'Harry Hall', ''],
+  Andy:    ['J.J. Spaun', 'Matthew Fitzpatrick', 'Jacob Bridgeman', 'Si Woo Kim', 'Daniel Berger'],
+  Tyreese: ['Collin Morikawa', 'Ben Griffin', 'Michael Kim', 'Harry Hall', 'Carlos Ortiz'],
   Jonny:   ['Chris Gotterup', 'Tommy Fleetwood', 'Russell Henley', 'Nico Echavarria', ''],
 };
 
