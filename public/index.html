@@ -195,14 +195,38 @@
     .sc-tot  { background: var(--green); color: var(--gold); font-weight: bold; }
     .sc-hole-header { background: #2d6a4f; color: #cde8d0; font-size: 0.68rem; letter-spacing: 0.5px; }
     .sc-empty { color: #ccc; }
-    /* Score type colours */
-    .sc-albatross { background: #d4af37; color: #000; font-weight: bold; }
-    .sc-eagle     { background: #d4af37; color: #000; font-weight: bold; }
-    .sc-birdie    { background: #c0392b; color: #fff; font-weight: bold; }
-    .sc-par       { background: #fff; color: #333; }
-    .sc-bogey     { background: #2d6a4f; color: #fff; }
-    .sc-double    { background: #1a1a2e; color: #fff; font-weight: bold; }
-    .sc-worse     { background: #000; color: #fff; font-weight: bold; }
+    /* Score shape wrapper */
+    .sc-table td { position: relative; }
+    .sc-shape {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; font-size: 0.78rem; font-weight: bold; line-height: 1;
+    }
+    /* Eagle / Albatross: red double circle */
+    .sc-eagle .sc-shape, .sc-albatross .sc-shape {
+      color: #c0392b; border: 1.5px solid #c0392b; border-radius: 50%;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px #c0392b;
+      background: transparent;
+    }
+    /* Birdie: red filled circle */
+    .sc-birdie .sc-shape {
+      color: #fff; background: #c0392b; border-radius: 50%;
+    }
+    /* Par: plain */
+    .sc-par .sc-shape { color: #333; }
+    /* Bogey: green square */
+    .sc-bogey .sc-shape {
+      color: #fff; background: #2d6a4f;
+    }
+    /* Double bogey: dark double square */
+    .sc-double .sc-shape {
+      color: #fff; background: #1a1a2e;
+      outline: 2px solid #1a1a2e; outline-offset: 2px;
+    }
+    /* Worse than double: black double square */
+    .sc-worse .sc-shape {
+      color: #fff; background: #000;
+      outline: 2px solid #000; outline-offset: 2px;
+    }
     /* Clickable golfer rows */
     .golfer-clickable { cursor: pointer; }
     .golfer-clickable:hover td { background: var(--light-green) !important; }
@@ -998,7 +1022,8 @@ function renderScorecard(data, name) {
     const makeHoleCells = holes => holes.map(h => {
       const hd = holeMap[h];
       if (!hd) return `<td class="sc-empty">—</td>`;
-      return `<td class="${scTypeClass(hd.scoreType)}">${hd.display || hd.strokes}</td>`;
+      const val = hd.display !== '' ? hd.display : (hd.strokes != null ? hd.strokes : '?');
+      return `<td class="${scTypeClass(hd.scoreType)}"><span class="sc-shape">${val}</span></td>`;
     }).join('');
 
     const makeSubtotal = (val, cls='sc-sub') =>

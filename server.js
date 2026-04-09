@@ -370,18 +370,32 @@ app.get('/api/scorecard/:athleteId', async (req, res) => {
     if (!r.ok) throw new Error(`ESPN HTTP ${r.status}`);
     const json = await r.json();
 
-    const rounds = (json.items || [])
-      .filter(item => item.period && item.linescores?.length)
+    // ESPN sometimes returns items as $ref links — resolve them
+    const rawItems = json.items || [];
+    const resolvedItems = await Promise.all(rawItems.map(async item => {
+      if (item.$ref && !item.period) {
+        try {
+          const ref = await fetch(item.$ref, { headers: ESPN_HEADERS });
+          return ref.ok ? await ref.json() : null;
+        } catch { return null; }
+      }
+      return item;
+    }));
+
+    const rounds = resolvedItems
+      .filter(item => item && item.period && Array.isArray(item.linescores) && item.linescores.length)
       .map(item => ({
         period:  item.period,
-        strokes: Number(item.value) || null,
-        holes:   (item.linescores || []).map(h => ({
-          hole:      h.period,
-          strokes:   h.value != null ? Number(h.value) : null,
-          display:   h.displayValue || '',
-          par:       h.par || null,
-          scoreType: h.scoreType?.name || 'PAR',
-        })),
+        strokes: Number(item.value) > 50 ? Number(item.value) : null,
+        holes:   item.linescores
+          .filter(h => h && h.period && !h.$ref)
+          .map(h => ({
+            hole:      h.period,
+            strokes:   h.value != null ? Number(h.value) : null,
+            display:   h.displayValue != null ? String(h.displayValue) : '',
+            par:       h.par || null,
+            scoreType: h.scoreType?.name || 'PAR',
+          })),
       }));
 
     const data = { athleteId, rounds };
