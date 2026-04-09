@@ -861,6 +861,10 @@ function renderTeams() {
           <span style="text-align:center">R3</span><span style="text-align:center">R4</span>
         </div>
         ${playerRows}${penaltyNote}
+        <div style="border-top:2px solid var(--border);padding:7px 12px;display:flex;justify-content:space-between;align-items:center;background:#fafaf8;">
+          <span style="font-size:0.75rem;color:var(--muted);letter-spacing:1px;">TOTAL</span>
+          <span style="font-weight:bold;font-size:1rem;">${total !== null ? `<span class="to-par-pill ${toParClass(toParStr(total) || 'E')}">${toParStr(total) || 'E'}</span>` : '<span style="color:#ccc">—</span>'}</span>
+        </div>
       </div>`;
   }).join('');
 }
