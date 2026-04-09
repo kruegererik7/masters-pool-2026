@@ -103,9 +103,11 @@ async function syncFromESPN() {
       const isWD     = statName === 'STATUS_WITHDRAWN';
       const isLive   = statName === 'STATUS_IN_PROGRESS';
 
-      // Completed rounds: linescore value > 50 = stroke total
-      // In-progress round: linescore value = holes completed (1-18), displayValue = to-par string
+      // For in-progress players use comp.status.period to know which rounds are done.
+      // ESPN's linescore.value for the *current* round can exceed 50 (internal number, not strokes).
+      const period = comp.status?.period || 1; // 1-indexed round currently being played
       const roundStrokes = [0,1,2,3].map(i => {
+        if (isLive && i >= period - 1) return null; // current or future round — not a stroke total
         const v = Number(ls[i]?.value);
         return (!isNaN(v) && v > 50) ? v : null;
       });
@@ -255,9 +257,10 @@ app.get('/api/full-leaderboard', async (_req, res) => {
       const isWD   = stat === 'STATUS_WITHDRAWN';
       const isLive = stat === 'STATUS_IN_PROGRESS';
 
-      // Completed round stroke totals (value > 50)
-      // In-progress round: value = holes played, displayValue = to-par string
+      // Use comp.status.period so in-progress players' current-round value isn't misread as strokes.
+      const period = comp.status?.period || 1;
       const rounds = [0,1,2,3].map(i => {
+        if (isLive && i >= period - 1) return null;
         const v = Number(ls[i]?.value);
         return (!isNaN(v) && v > 50) ? v : null;
       });
