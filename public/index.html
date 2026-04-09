@@ -253,6 +253,7 @@
     .team-player-row .r-score.mc-label     { color: #ccc; font-size: 0.7rem; font-style: italic; }
     .mc-tag { font-size: 0.65rem; background: #f0f0f0; color: #999; padding: 1px 5px; border-radius: 3px; margin-left: 5px; font-style: italic; vertical-align: middle; }
     .penalty-row { padding: 6px 12px; font-size: 0.75rem; color: var(--red); background: #fff5f5; border-top: 1px dashed #fcc; font-style: italic; }
+    .team-daily-totals { display: grid; grid-template-columns: 1fr 38px 38px 38px 38px; align-items: center; padding: 7px 12px; border-top: 2px solid var(--border); background: #f2f5f2; }
 
     /* ── RULES ── */
     .rules-body { padding: 16px 20px; font-size: 0.85rem; line-height: 1.8; }
@@ -814,6 +815,17 @@ function buildGolferSubRows(member) {
 // ══════════════════════════════════════════════════════════════════════
 // TEAMS TAB
 // ══════════════════════════════════════════════════════════════════════
+// Returns true only when every golfer on the team has finished the round
+function isRoundComplete(member, round) {
+  const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
+  if (!picks.length) return false;
+  return picks.every(p => {
+    const rd = getRound(p, round);
+    if (!rd) return false;
+    return rd.status === 'complete' || rd.status === 'MC';
+  });
+}
+
 function renderTeams() {
   const container = document.getElementById('teams-grid');
   const inWeekend = allGolfers().some(g => typeof getRound(g,'r3') === 'number');
@@ -861,9 +873,16 @@ function renderTeams() {
           <span style="text-align:center">R3</span><span style="text-align:center">R4</span>
         </div>
         ${playerRows}${penaltyNote}
-        <div style="border-top:2px solid var(--border);padding:7px 12px;display:flex;justify-content:space-between;align-items:center;background:#fafaf8;">
-          <span style="font-size:0.75rem;color:var(--muted);letter-spacing:1px;">TOTAL</span>
-          <span style="font-weight:bold;font-size:1rem;">${total !== null ? `<span class="to-par-pill ${toParClass(toParStr(total) || 'E')}">${toParStr(total) || 'E'}</span>` : '<span style="color:#ccc">—</span>'}</span>
+        <div class="team-daily-totals">
+          <span style="font-size:0.72rem;color:var(--muted);letter-spacing:1px;font-weight:bold;">DAILY</span>
+          ${['r1','r2','r3','r4'].map(r => {
+            if (!isRoundComplete(member, r)) return `<span class="r-score" style="color:#ddd">—</span>`;
+            const s = teamRoundScore(member, r);
+            const str = toParStr(s);
+            return s !== null
+              ? `<span class="r-score"><span class="to-par-pill ${toParClass(str || 'E')}" style="font-size:0.72rem;padding:1px 5px">${str || 'E'}</span></span>`
+              : `<span class="r-score" style="color:#ddd">—</span>`;
+          }).join('')}
         </div>
       </div>`;
   }).join('');
