@@ -220,6 +220,8 @@ app.post('/api/sync', async (_req, res) => {
 // ── Full leaderboard proxy (all field players, cached 3 min) ──────────
 let fullLbCache     = null;
 let fullLbCacheTime = 0;
+// Clear cache on startup so first request always gets fresh data
+fullLbCache = null;
 const FULL_LB_TTL   = 3 * 60 * 1000;
 const AUGUSTA_PAR   = 72;
 
@@ -291,9 +293,10 @@ app.get('/api/full-leaderboard', async (_req, res) => {
       const todayStrokes = todayIdx >= 0 ? rounds[todayIdx] : null;
       const todayToPar   = todayStrokes ? toParStr(todayStrokes, 1) : null;
 
-      // Tee time (only relevant for players who haven't started)
-      const teeTimeCT = validRounds.length === 0 && !isMC && !isWD
-        ? fmtTeeToCT(comp.status?.teeTime)
+      // Tee time — only for players whose status is explicitly scheduled/not yet started
+      const notStarted = stat === 'STATUS_SCHEDULED' || stat === 'STATUS_UPCOMING' || stat === '';
+      const teeTimeCT = notStarted && validRounds.length === 0 && !isMC && !isWD
+        ? fmtTeeToCT(comp.teeTime || comp.status?.teeTime)
         : null;
 
       return {
