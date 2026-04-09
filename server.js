@@ -285,7 +285,7 @@ app.get('/api/full-leaderboard', async (_req, res) => {
 
       // Tee time (only relevant for players who haven't started)
       const teeTimeCT = validRounds.length === 0 && !isMC && !isWD
-        ? fmtTeeToCT(comp.teeTime)
+        ? fmtTeeToCT(comp.status?.teeTime)
         : null;
 
       return {
