@@ -380,8 +380,9 @@ let penalties = { r3: null, r4: null };
 let lastSync  = null;
 let syncStatus = null;
 
-let refreshTimer = null;
-let activeTab    = 'leaderboard';
+let refreshTimer       = null;
+let activeTab          = 'leaderboard';
+let lastBrowserRefresh = null;
 
 // ══════════════════════════════════════════════════════════════════════
 // DATA LOADING
@@ -389,6 +390,7 @@ let activeTab    = 'leaderboard';
 async function loadData() {
   try {
     const res  = await fetch('/api/data');
+    lastBrowserRefresh = new Date();
     const data = await res.json();
     teams     = data.teams     || {};
     scores    = data.scores    || {};
@@ -435,12 +437,14 @@ function updateSyncBar() {
   const isError = syncStatus?.startsWith('error');
   dot.className = 'sync-dot ' + (isOk ? 'ok' : isError ? 'error' : '');
 
-  if (lastSync) {
-    const d    = new Date(lastSync);
-    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const date = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    const src  = isOk ? 'Live from ESPN' : isError ? 'ESPN sync failed — using last data' : 'Syncing…';
-    text.textContent = `${src} · Last updated ${date} ${time}`;
+  const fmtTime = d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  if (lastBrowserRefresh) {
+    const espnPart = lastSync
+      ? ` · ESPN synced ${fmtTime(new Date(lastSync))}`
+      : '';
+    const src = isOk ? 'Live from ESPN' : isError ? 'ESPN sync failed' : 'Connected';
+    text.textContent = `${src} · Page refreshed ${fmtTime(lastBrowserRefresh)}${espnPart} · refreshes every 60s`;
   } else {
     text.textContent = 'Connecting to ESPN…';
   }
