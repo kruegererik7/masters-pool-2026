@@ -125,10 +125,9 @@ async function syncFromESPN() {
           roundData[rKey] = { strokes: roundStrokes[i], toPar: rToPar, thru: 18, status: 'complete' };
           cumToPar += rToPar;
         } else if (isLive && i === numComplete) {
-          // In-progress round — ESPN puts holes played in value, to-par string in displayValue
-          const lsVal  = Number(ls[i]?.value);
-          const thru   = (!isNaN(lsVal) && lsVal >= 1 && lsVal <= 18) ? Math.floor(lsVal) : null;
-          const toPar  = parseToParNum(ls[i]?.displayValue);
+          // In-progress: to-par from linescore displayValue, thru from comp.status.thru
+          const toPar = parseToParNum(ls[i]?.displayValue);
+          const thru  = typeof comp.status?.thru === 'number' ? comp.status.thru : null;
           roundData[rKey] = { strokes: null, toPar, thru, status: 'inprogress' };
         } else {
           roundData[rKey] = { strokes: null, toPar: null, thru: null, status: 'notstarted' };
@@ -269,7 +268,7 @@ app.get('/api/full-leaderboard', async (_req, res) => {
       const liveRoundIdx = isLive ? validRounds.length : -1;
       const liveLs       = liveRoundIdx >= 0 ? ls[liveRoundIdx] : null;
       const liveToParNum = liveLs ? parseToParNum(liveLs.displayValue) : null;
-      const liveThru     = liveLs ? (() => { const v = Number(liveLs.value); return (!isNaN(v) && v >= 1 && v <= 18) ? Math.floor(v) : null; })() : null;
+      const liveThru     = isLive ? (typeof comp.status?.thru === 'number' ? comp.status.thru : null) : null;
 
       // Total to-par
       let scoreNum = null;
