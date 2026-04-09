@@ -864,17 +864,17 @@ async function renderFullLeaderboard() {
       const isPool  = poolSet.has(p.name.toLowerCase());
       const posLabel = p.isMC ? 'MC' : p.isWD ? 'WD' : (p.pos || '');
 
-      const totalCell = p.teeTimeCT
+      const todayCell = p.teeTimeCT
         ? `<span style="font-size:0.78rem;color:#888;font-style:italic">${p.teeTimeCT}</span>`
-        : `<span class="to-par-pill ${toParClass(p.toPar)}">${p.toPar || 'E'}</span>`;
+        : fmtToday(p.todayStrokes, p.todayToPar);
 
       rows += `
         <tr>
           <td class="flb-pos">${posLabel}</td>
           <td class="flb-name ${isPool ? 'pool-member' : ''}">${p.name}</td>
           <td class="flb-country">${p.country}</td>
-          <td>${totalCell}</td>
-          <td>${fmtToday(p.todayStrokes, p.todayToPar)}</td>
+          <td><span class="to-par-pill ${toParClass(p.toPar)}">${p.toPar || 'E'}</span></td>
+          <td>${todayCell}</td>
           <td class="flb-round">${fmtRound(p.rounds[0])}</td>
           <td class="flb-round">${fmtRound(p.rounds[1])}</td>
           <td class="flb-round">${fmtRound(p.rounds[2])}</td>
