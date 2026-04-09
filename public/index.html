@@ -132,21 +132,7 @@
     /* Member name cell — bold uppercase like the broadcast */
     .member-name { font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; font-size: 0.92rem; color: #111; }
 
-    /* Total score — green pill like the TV leaderboard */
-    .score-total-cell {
-      padding: 0 6px !important;
-    }
-    .score-total-pill {
-      display: inline-block;
-      background: var(--green);
-      color: white;
-      font-weight: bold;
-      font-size: 0.92rem;
-      padding: 4px 12px;
-      border-radius: 3px;
-      min-width: 52px;
-      text-align: center;
-    }
+    .score-total-cell { padding: 0 6px !important; }
     .score-null   { color: #ccc; }
     .penalty-score { color: var(--red); font-style: italic; }
 
@@ -182,14 +168,14 @@
     #full-lb-table .flb-name.pool-member { color: var(--green); }
     #full-lb-table .flb-name.pool-member::after { content: ' ★'; font-size: 0.7rem; color: var(--gold); }
     #full-lb-table .flb-country { font-size: 0.68rem; color: #777; letter-spacing: 1px; text-align: left; padding-left: 0; }
-    .to-par-pill { display: inline-block; min-width: 46px; padding: 3px 8px; border-radius: 3px; font-weight: 700; font-size: 0.88rem; text-align: center; }
-    .to-par-under { background: var(--green); color: white; }
-    .to-par-over  { background: #c0392b;      color: white; }
-    .to-par-even  { background: #555;          color: white; }
+    .to-par-pill  { display: inline-block; min-width: 46px; padding: 3px 8px; border-radius: 3px; font-weight: 700; font-size: 0.88rem; text-align: center; }
+    .to-par-under { background: #c0392b;      color: white; }
+    .to-par-over  { background: var(--green); color: white; }
+    .to-par-even  { background: var(--green); color: white; }
     .to-par-mc    { background: transparent;  color: #aaa; font-style: italic; font-weight: normal; font-size: 0.8rem; }
-    .today-under  { color: var(--green); font-weight: 700; }
-    .today-over   { color: #c0392b;      font-weight: 700; }
-    .today-even   { color: #555; }
+    .today-under  { color: #c0392b;      font-weight: 700; }
+    .today-over   { color: var(--green); font-weight: 700; }
+    .today-even   { color: var(--green); }
     .flb-round    { color: #444; }
     .flb-round.null-score { color: #ccc; }
     .cut-divider td { background: var(--green) !important; color: white !important; font-size: 0.68rem; letter-spacing: 2px; text-align: center !important; padding: 4px !important; height: auto !important; }
@@ -550,6 +536,13 @@ function fmtScore(v) {
   return toParStr(v) || 'E';
 }
 
+// Colored pill for any to-par value (numeric or string)
+function toParPill(v) {
+  if (v === null || v === undefined) return '<span class="score-null">—</span>';
+  const str = typeof v === 'number' ? (toParStr(v) || 'E') : String(v);
+  return `<span class="to-par-pill ${toParClass(str)}">${str}</span>`;
+}
+
 // Format an individual player's round data object for display
 //   complete:    "70 (-2)"
 //   inprogress:  "-2 (thru 7)"
@@ -560,13 +553,15 @@ function fmtRoundCell(rd) {
   if (rd.status === 'MC') return '<span class="g-score-mc">MC</span>';
   if (rd.status === 'WD') return '<span class="g-score-mc">WD</span>';
   if (rd.status === 'complete') {
-    const tp = toParStr(rd.toPar);
-    return `${rd.strokes} <span style="color:var(--muted);font-size:0.75rem">(${tp || 'E'})</span>`;
+    const tp      = toParStr(rd.toPar) || 'E';
+    const tpColor = rd.toPar < 0 ? '#c0392b' : 'var(--green)';
+    return `${rd.strokes} <span style="color:${tpColor};font-size:0.75rem;font-weight:bold">(${tp})</span>`;
   }
   if (rd.status === 'inprogress') {
     const tp      = toParStr(rd.toPar) || 'E';
+    const tpColor = rd.toPar < 0 ? '#c0392b' : 'var(--green)';
     const thruStr = rd.thru !== null ? `thru ${rd.thru}` : 'live';
-    return `<span style="color:var(--green);font-weight:bold">${tp}</span><span style="color:var(--muted);font-size:0.72rem"> (${thruStr})</span>`;
+    return `<span style="color:${tpColor};font-weight:bold">${tp}</span><span style="color:var(--muted);font-size:0.72rem"> (${thruStr})</span>`;
   }
   return '<span class="score-null">—</span>';
 }
@@ -622,11 +617,11 @@ function renderLeaderboard() {
       <tr class="lb-member-row" onclick="toggleExpand('${s.m}')">
         <td class="pos ${posClass(s.rank)}">${posLabel}</td>
         <td class="member-name"><span class="chevron" id="chev-${s.m}">▶</span>${s.m}</td>
-        <td>${fmtScore(s.r1)}</td>
-        <td>${fmtScore(s.r2)}</td>
-        <td>${s.r3 !== null ? (r3IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${toParStr(s.r3)}*</span>` : fmtScore(s.r3)) : fmtScore(null)}</td>
-        <td>${s.r4 !== null ? (r4IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${toParStr(s.r4)}*</span>` : fmtScore(s.r4)) : fmtScore(null)}</td>
-        <td class="score-total-cell">${s.total !== null ? `<span class="score-total-pill">${toParStr(s.total) || 'E'}</span>` : `<span class="score-null">—</span>`}</td>
+        <td>${toParPill(s.r1)}</td>
+        <td>${toParPill(s.r2)}</td>
+        <td>${s.r3 !== null ? (r3IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${toParStr(s.r3)}*</span>` : toParPill(s.r3)) : toParPill(null)}</td>
+        <td>${s.r4 !== null ? (r4IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${toParStr(s.r4)}*</span>` : toParPill(s.r4)) : toParPill(null)}</td>
+        <td class="score-total-cell">${toParPill(s.total)}</td>
       </tr>`;
 
     const golferRows = buildGolferSubRows(s.m);
