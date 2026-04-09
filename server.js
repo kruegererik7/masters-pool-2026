@@ -70,10 +70,18 @@ function parseToParNum(str) {
   return isNaN(n) ? null : n;
 }
 
+const ESPN_HEADERS = {
+  'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept':          'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Referer':         'https://www.espn.com/',
+  'Origin':          'https://www.espn.com',
+};
+
 async function syncFromESPN() {
   try {
     console.log('[ESPN] Syncing…');
-    const res = await fetch(ESPN_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const res = await fetch(ESPN_URL, { headers: ESPN_HEADERS });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
 
@@ -247,7 +255,7 @@ app.get('/api/full-leaderboard', async (_req, res) => {
     return res.json(fullLbCache);
 
   try {
-    const r = await fetch(ESPN_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const r = await fetch(ESPN_URL, { headers: ESPN_HEADERS });
     if (!r.ok) throw new Error(`ESPN HTTP ${r.status}`);
     const json = await r.json();
 
