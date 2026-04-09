@@ -429,7 +429,8 @@ function updateSyncBar() {
     const fmtTime = d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const errorDetail = isError ? ` (${syncStatus.replace('error: ', '')})` : '';
     const src = isOk ? 'Live from ESPN' : isError ? `ESPN sync failed${errorDetail}` : 'Syncing…';
-    text.textContent = `${src} · Last attempt ${fmtTime(new Date(lastSync))}`;
+    const label = isOk ? 'ESPN synced' : 'Last attempt';
+    text.textContent = `${src} · ${label} ${fmtTime(new Date(lastSync))}`;
   } else {
     text.textContent = 'Connecting to ESPN…';
   }
