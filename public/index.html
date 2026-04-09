@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Masters Pool 2026</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --green:       #1a472a;
@@ -13,15 +13,18 @@
       --gold:        #c9a84c;
       --light-gold:  #f5e6b8;
       --white:       #ffffff;
-      --off-white:   #f8f8f6;
+      --off-white:   #f0f0ee;
       --border:      #ddd;
-      --text:        #2b2b2b;
+      --text:        #1a1a1a;
       --muted:       #888;
-      --red:         #b22222;
+      --red:         #7a2535;
+      --wine:        #7a2535;
+      --row-bg:      #e2e2e0;
+      --row-alt:     #d8d8d6;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body { font-family: 'Georgia', serif; background: var(--off-white); color: var(--text); min-height: 100vh; }
+    body { font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif; background: var(--off-white); color: var(--text); min-height: 100vh; }
 
     /* ── HEADER (Masters logo style) ── */
     header { background: white; text-align: center; padding: 20px 16px 12px; border-bottom: 4px solid var(--green); }
@@ -106,31 +109,31 @@
     }
     th:first-child, th:nth-child(2) { text-align: left; }
 
-    /* TV-style uniform gray rows */
+    /* TV-style rows */
     td {
       padding: 0 14px;
-      height: 48px;
-      border-bottom: 2px solid white; /* white separator like the broadcast */
-      font-size: 0.92rem;
+      height: 46px;
+      border-bottom: 2px solid white;
+      font-size: 1rem;
       text-align: center;
       white-space: nowrap;
       vertical-align: middle;
-      background: #e8e8e8;           /* uniform gray — no alternating */
+      background: var(--row-bg);
+      font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+      letter-spacing: 0.3px;
     }
     td:first-child, td:nth-child(2) { text-align: left; }
+    tr:nth-child(even) td { background: var(--row-alt); }
     tr:last-child td { border-bottom: none; }
 
     /* Sticky header */
     thead th { position: sticky; top: 0; z-index: 5; }
 
     /* Position cell — green bold, matches broadcast */
-    .pos { font-weight: 700; color: var(--green); min-width: 34px; font-size: 1rem; }
-    .pos-1 { color: var(--green); }
-    .pos-2 { color: var(--green); }
-    .pos-3 { color: var(--green); }
+    .pos { font-weight: 700; color: var(--green); min-width: 34px; font-size: 1.05rem; }
 
     /* Member name cell — bold uppercase like the broadcast */
-    .member-name { font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; font-size: 0.92rem; color: #111; }
+    .member-name { font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 1rem; color: #111; }
 
     .score-total-cell { padding: 0 6px !important; }
     .score-null   { color: #ccc; }
@@ -149,7 +152,7 @@
     .chevron.open { transform: rotate(90deg); color: var(--green); }
 
     /* Golfer sub-rows */
-    .golfer-sub-row td { background: #f0f4f0; height: 36px; font-size: 0.8rem; border-bottom: 1px solid #dde8dd; padding: 0 14px; }
+    .golfer-sub-row td { background: #cdd4cd; height: 36px; font-size: 0.82rem; border-bottom: 1px solid #bcc8bc; padding: 0 14px; }
     .golfer-sub-row:last-of-type td { border-bottom: 3px solid var(--green); }
     .golfer-sub-row .golfer-name { padding-left: 34px; color: #555; text-align: left; font-style: italic; }
     .golfer-sub-row .penalty-row-cell { font-size: 0.7rem; color: var(--red); font-style: italic; text-align: left; padding-left: 34px; }
@@ -161,21 +164,21 @@
     .g-penalty-note        { font-size: 0.72rem; color: var(--red); font-style: italic; padding: 4px 10px; }
 
     /* ── FULL LEADERBOARD ── */
-    #full-lb-table td { background: #e8e8e8; height: 44px; font-size: 0.88rem; }
-    #full-lb-table tr:nth-child(even) td { background: #e0e0e0; }
-    #full-lb-table .flb-pos  { font-weight: 700; color: var(--green); text-align: left; }
-    #full-lb-table .flb-name { font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.88rem; text-align: left; }
+    #full-lb-table td { background: var(--row-bg); height: 42px; font-size: 0.95rem; }
+    #full-lb-table tr:nth-child(even) td { background: var(--row-alt); }
+    #full-lb-table .flb-pos  { font-weight: 700; color: var(--green); text-align: left; font-size: 1rem; }
+    #full-lb-table .flb-name { font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; font-size: 0.95rem; text-align: left; }
     #full-lb-table .flb-name.pool-member { color: var(--green); }
     #full-lb-table .flb-name.pool-member::after { content: ' ★'; font-size: 0.7rem; color: var(--gold); }
     #full-lb-table .flb-country { font-size: 0.68rem; color: #777; letter-spacing: 1px; text-align: left; padding-left: 0; }
-    .to-par-pill  { display: inline-block; min-width: 46px; padding: 3px 8px; border-radius: 3px; font-weight: 700; font-size: 0.88rem; text-align: center; }
-    .to-par-under { background: #c0392b;      color: white; }
+    .to-par-pill  { display: inline-block; min-width: 52px; padding: 5px 10px; border-radius: 2px; font-weight: 700; font-size: 0.95rem; text-align: center; font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif; letter-spacing: 0.5px; }
+    .to-par-under { background: var(--wine);  color: white; }
     .to-par-over  { background: var(--green); color: white; }
     .to-par-even  { background: var(--green); color: white; }
     .to-par-mc    { background: transparent;  color: #aaa; font-style: italic; font-weight: normal; font-size: 0.8rem; }
-    .today-under  { color: #c0392b;      font-weight: 700; }
-    .today-over   { color: var(--green); font-weight: 700; }
-    .today-even   { color: var(--green); }
+    .today-under  { color: var(--wine);   font-weight: 700; }
+    .today-over   { color: var(--green);  font-weight: 700; }
+    .today-even   { color: var(--green);  font-weight: 700; }
     .flb-round    { color: #444; }
     .flb-round.null-score { color: #ccc; }
     .cut-divider td { background: var(--green) !important; color: white !important; font-size: 0.68rem; letter-spacing: 2px; text-align: center !important; padding: 4px !important; height: auto !important; }
@@ -554,12 +557,12 @@ function fmtRoundCell(rd) {
   if (rd.status === 'WD') return '<span class="g-score-mc">WD</span>';
   if (rd.status === 'complete') {
     const tp      = toParStr(rd.toPar) || 'E';
-    const tpColor = rd.toPar < 0 ? '#c0392b' : 'var(--green)';
+    const tpColor = rd.toPar < 0 ? 'var(--wine)' : 'var(--green)';
     return `${rd.strokes} <span style="color:${tpColor};font-size:0.75rem;font-weight:bold">(${tp})</span>`;
   }
   if (rd.status === 'inprogress') {
     const tp      = toParStr(rd.toPar) || 'E';
-    const tpColor = rd.toPar < 0 ? '#c0392b' : 'var(--green)';
+    const tpColor = rd.toPar < 0 ? 'var(--wine)' : 'var(--green)';
     const thruStr = rd.thru !== null ? `thru ${rd.thru}` : 'live';
     return `<span style="color:${tpColor};font-weight:bold">${tp}</span><span style="color:var(--muted);font-size:0.72rem"> (${thruStr})</span>`;
   }
