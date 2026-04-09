@@ -98,58 +98,38 @@ async function syncFromESPN() {
       if (!name) continue;
 
       const ls       = comp.linescores || [];
-      const detail   = (comp.status?.type?.shortDetail || '').trim();
       const statName = comp.status?.type?.name || '';
       const isMC     = statName === 'STATUS_MISSED_CUT' || statName === 'STATUS_CUT';
       const isWD     = statName === 'STATUS_WITHDRAWN';
+      const isLive   = statName === 'STATUS_IN_PROGRESS';
 
-      // Completed rounds have stroke totals > 50 in linescores
+      // Completed rounds: linescore value > 50 = stroke total
+      // In-progress round: linescore value = holes completed (1-18), displayValue = to-par string
       const roundStrokes = [0,1,2,3].map(i => {
         const v = Number(ls[i]?.value);
         return (!isNaN(v) && v > 50) ? v : null;
       });
       const numComplete = roundStrokes.filter(v => v !== null).length;
 
-      // Parse shortDetail:
-      //   "-3 thru 12"  → in progress, tournament to-par = -3, thru 12 holes
-      //   "F" / "-5"    → finished for the day
-      //   "MC" / "WD"   → special statuses
-      //   "9:15 AM"     → not yet started
-      let inProgress = false, thru = null, tourneyToPar = null, finishedToday = false;
-      const thruMatch = detail.match(/(.+?)\s+thru\s+(\d+)/i);
-      if (thruMatch) {
-        inProgress   = true;
-        thru         = parseInt(thruMatch[2], 10);
-        tourneyToPar = parseToParNum(thruMatch[1]);
-      } else if (/^F$/i.test(detail) || /^(E|[+-]\d+|\d+)$/.test(detail)) {
-        finishedToday = true;
-      }
-
       // Build rich per-round objects
       const roundData = {};
-      let cumToPar = 0; // sum of completed rounds' to-par (for deriving current round to-par)
+      let cumToPar = 0;
 
       for (let i = 0; i < 4; i++) {
         const rKey = `r${i + 1}`;
         if (isMC && i >= 2) {
           roundData[rKey] = { strokes: null, toPar: null, thru: null, status: 'MC' };
         } else if (roundStrokes[i] !== null) {
-          // Completed round — we have final strokes
+          // Completed round — stroke total posted
           const rToPar = roundStrokes[i] - 72;
           roundData[rKey] = { strokes: roundStrokes[i], toPar: rToPar, thru: 18, status: 'complete' };
           cumToPar += rToPar;
-        } else if (i === numComplete && !isMC && !isWD && !finishedToday) {
-          // Current round — player is in progress
-          if (inProgress && tourneyToPar !== null) {
-            roundData[rKey] = {
-              strokes: null,
-              toPar:   tourneyToPar - cumToPar, // current-round to-par = tournament total minus completed rounds
-              thru,
-              status:  'inprogress'
-            };
-          } else {
-            roundData[rKey] = { strokes: null, toPar: null, thru: null, status: 'notstarted' };
-          }
+        } else if (isLive && i === numComplete) {
+          // In-progress round — ESPN puts holes played in value, to-par string in displayValue
+          const lsVal  = Number(ls[i]?.value);
+          const thru   = (!isNaN(lsVal) && lsVal >= 1 && lsVal <= 18) ? Math.floor(lsVal) : null;
+          const toPar  = parseToParNum(ls[i]?.displayValue);
+          roundData[rKey] = { strokes: null, toPar, thru, status: 'inprogress' };
         } else {
           roundData[rKey] = { strokes: null, toPar: null, thru: null, status: 'notstarted' };
         }
@@ -272,11 +252,12 @@ app.get('/api/full-leaderboard', async (_req, res) => {
     const players = (competition.competitors || []).map(comp => {
       const ls     = comp.linescores || [];
       const stat   = comp.status?.type?.name || '';
-      const detail = (comp.status?.type?.shortDetail || '').trim();
       const isMC   = stat === 'STATUS_MISSED_CUT' || stat === 'STATUS_CUT';
       const isWD   = stat === 'STATUS_WITHDRAWN';
+      const isLive = stat === 'STATUS_IN_PROGRESS';
 
-      // Completed round stroke totals (>50 guards against to-par values)
+      // Completed round stroke totals (value > 50)
+      // In-progress round: value = holes played, displayValue = to-par string
       const rounds = [0,1,2,3].map(i => {
         const v = Number(ls[i]?.value);
         return (!isNaN(v) && v > 50) ? v : null;
@@ -284,42 +265,39 @@ app.get('/api/full-leaderboard', async (_req, res) => {
       const validRounds    = rounds.filter(v => v !== null);
       const completedToPar = validRounds.reduce((s, v) => s + (v - 72), 0);
 
-      // Parse shortDetail for in-progress: "-3 thru 5"
-      const thruMatch       = detail.match(/([+-]?\d+|E)\s+thru\s+(\d+)/i);
-      // Parse shortDetail for a clean score: "-5" or "E" or "+2"
-      const cleanScoreMatch = detail.match(/^([+-]?\d+|E)$/i);
+      // In-progress round index = first round without a stroke total
+      const liveRoundIdx = isLive ? validRounds.length : -1;
+      const liveLs       = liveRoundIdx >= 0 ? ls[liveRoundIdx] : null;
+      const liveToParNum = liveLs ? parseToParNum(liveLs.displayValue) : null;
+      const liveThru     = liveLs ? (() => { const v = Number(liveLs.value); return (!isNaN(v) && v >= 1 && v <= 18) ? Math.floor(v) : null; })() : null;
 
-      let scoreNum  = null; // total tournament to-par (number)
-      let todayNum  = null; // today's round to-par (number)
-      let thruToday = null; // holes completed today (null=not started, 18=finished)
-
+      // Total to-par
+      let scoreNum = null;
       if (isMC || isWD) {
         scoreNum = validRounds.length > 0 ? completedToPar : null;
-      } else if (thruMatch) {
-        // Currently on the course
-        scoreNum  = parseToParNum(thruMatch[1]);
-        thruToday = parseInt(thruMatch[2]);
-        todayNum  = scoreNum !== null ? scoreNum - completedToPar : null;
-      } else if (validRounds.length >= roundNum) {
-        // Finished today's round (stroke total posted)
-        scoreNum  = completedToPar;
-        todayNum  = validRounds[roundNum - 1] !== undefined ? (validRounds[roundNum - 1] - 72) : null;
-        thruToday = 18;
-      } else if (cleanScoreMatch) {
-        // ESPN has a final score but strokes not posted yet
-        scoreNum  = parseToParNum(cleanScoreMatch[1]);
-        todayNum  = validRounds.length > 0 ? scoreNum - completedToPar : scoreNum;
-        thruToday = 18;
+      } else if (isLive && liveToParNum !== null) {
+        scoreNum = completedToPar + liveToParNum;
       } else if (validRounds.length > 0) {
-        // Finished prior rounds, not yet started today
-        scoreNum  = completedToPar;
+        scoreNum = completedToPar;
+      }
+
+      // Today's round to-par
+      let todayNum  = null;
+      let thruToday = null;
+      if (isLive) {
+        todayNum  = liveToParNum;
+        thruToday = liveThru;
+      } else if (!isMC && !isWD && validRounds.length >= roundNum && roundNum > 0) {
+        // Finished today's round
+        todayNum  = validRounds[roundNum - 1] - 72;
+        thruToday = 18;
       }
 
       // Build display strings
       const score = isMC ? 'MC' : isWD ? 'WD' : (numStr(scoreNum) ?? '-');
       let today = null;
-      if (thruToday === 18) {
-        today = numStr(todayNum) ?? '-';
+      if (thruToday === 18 && todayNum !== null) {
+        today = numStr(todayNum);
       } else if (thruToday !== null && todayNum !== null) {
         today = `${numStr(todayNum)} (thru ${thruToday})`;
       }
