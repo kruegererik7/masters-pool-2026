@@ -335,7 +335,7 @@
               <th style="width:44px">POS</th>
               <th>PLAYER</th>
               <th style="width:44px"></th>
-              <th>TOTAL</th>
+              <th>SCORE</th>
               <th>TODAY</th>
               <th>R1</th>
               <th>R2</th>
@@ -844,36 +844,40 @@ async function renderFullLeaderboard() {
       updated.textContent = 'Updated ' + t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    const poolSet     = new Set((data.poolGolfers || []).map(n => n.toLowerCase()));
-    const fmtRound    = v => v !== null ? v : '<span class="null-score">—</span>';
-    const fmtToday    = (strokes, toPar) => {
-      if (!strokes) return '<span style="color:#ccc">—</span>';
-      return `${strokes} <span class="${todayClass(toPar)}" style="font-size:0.78rem">${toPar || ''}</span>`;
-    };
+    const poolSet  = new Set((data.poolGolfers || []).map(n => n.toLowerCase()));
+    const fmtRound = v => v !== null ? v : '<span class="null-score">—</span>';
 
     let rows = '';
     let cutInserted = false;
 
     data.players.forEach(p => {
-      // Insert cut line divider before first MC player
       if (!cutInserted && p.isMC) {
         cutInserted = true;
         rows += `<tr class="cut-divider"><td colspan="9">— CUT —</td></tr>`;
       }
 
-      const isPool  = poolSet.has(p.name.toLowerCase());
+      const isPool   = poolSet.has(p.name.toLowerCase());
       const posLabel = p.isMC ? 'MC' : p.isWD ? 'WD' : (p.pos || '');
 
-      const todayCell = p.teeTimeCT
-        ? `<span style="font-size:0.78rem;color:#888;font-style:italic">${p.teeTimeCT}</span>`
-        : fmtToday(p.todayStrokes, p.todayToPar);
+      // SCORE column — total to-par pill
+      const scoreCell = `<span class="to-par-pill ${toParClass(p.score)}">${p.score || '-'}</span>`;
+
+      // TODAY column — tee time if not started, live/final round score otherwise
+      let todayCell;
+      if (p.teeTimeCT) {
+        todayCell = `<span style="font-size:0.78rem;color:#888;font-style:italic">${p.teeTimeCT}</span>`;
+      } else if (p.today) {
+        todayCell = `<span class="to-par-pill ${toParClass(p.today.split(' ')[0])}">${p.today}</span>`;
+      } else {
+        todayCell = '<span style="color:#ccc">—</span>';
+      }
 
       rows += `
         <tr>
           <td class="flb-pos">${posLabel}</td>
           <td class="flb-name ${isPool ? 'pool-member' : ''}">${p.name}</td>
           <td class="flb-country">${p.country}</td>
-          <td><span class="to-par-pill ${toParClass(p.toPar)}">${p.toPar || 'E'}</span></td>
+          <td>${scoreCell}</td>
           <td>${todayCell}</td>
           <td class="flb-round">${fmtRound(p.rounds[0])}</td>
           <td class="flb-round">${fmtRound(p.rounds[1])}</td>

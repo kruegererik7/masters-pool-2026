@@ -265,52 +265,84 @@ app.get('/api/full-leaderboard', async (_req, res) => {
     const competition = event?.competitions?.[0];
     if (!competition) return res.json({ notStarted: true, players: [] });
 
-    const players = (competition.competitors || []).map(comp => {
-      const ls    = comp.linescores || [];
-      const stat  = comp.status?.type?.name || '';
-      const isMC  = stat === 'STATUS_MISSED_CUT' || stat === 'STATUS_CUT';
-      const isWD  = stat === 'STATUS_WITHDRAWN';
+    const roundNum = competition.status?.period || 1; // current round (1-4)
 
-      // Stroke total per round (>50 guards against to-par values)
+    const numStr = n => n === null ? null : n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`;
+
+    const players = (competition.competitors || []).map(comp => {
+      const ls     = comp.linescores || [];
+      const stat   = comp.status?.type?.name || '';
+      const detail = (comp.status?.type?.shortDetail || '').trim();
+      const isMC   = stat === 'STATUS_MISSED_CUT' || stat === 'STATUS_CUT';
+      const isWD   = stat === 'STATUS_WITHDRAWN';
+
+      // Completed round stroke totals (>50 guards against to-par values)
       const rounds = [0,1,2,3].map(i => {
         const v = Number(ls[i]?.value);
         return (!isNaN(v) && v > 50) ? v : null;
       });
+      const validRounds    = rounds.filter(v => v !== null);
+      const completedToPar = validRounds.reduce((s, v) => s + (v - 72), 0);
 
-      const validRounds  = rounds.filter(v => v !== null);
-      const totalStrokes = validRounds.reduce((a, b) => a + b, 0);
+      // Parse shortDetail for in-progress: "-3 thru 5"
+      const thruMatch       = detail.match(/([+-]?\d+|E)\s+thru\s+(\d+)/i);
+      // Parse shortDetail for a clean score: "-5" or "E" or "+2"
+      const cleanScoreMatch = detail.match(/^([+-]?\d+|E)$/i);
 
-      // Total to-par — prefer ESPN's shortDetail, fall back to calculating
-      let toPar = comp.status?.type?.shortDetail || '';
-      if (!toPar || toPar.toLowerCase().includes('hole') || toPar.toLowerCase() === 'in progress') {
-        toPar = isMC ? 'MC' : isWD ? 'WD' : validRounds.length ? toParStr(totalStrokes, validRounds.length) : '-';
+      let scoreNum  = null; // total tournament to-par (number)
+      let todayNum  = null; // today's round to-par (number)
+      let thruToday = null; // holes completed today (null=not started, 18=finished)
+
+      if (isMC || isWD) {
+        scoreNum = validRounds.length > 0 ? completedToPar : null;
+      } else if (thruMatch) {
+        // Currently on the course
+        scoreNum  = parseToParNum(thruMatch[1]);
+        thruToday = parseInt(thruMatch[2]);
+        todayNum  = scoreNum !== null ? scoreNum - completedToPar : null;
+      } else if (validRounds.length >= roundNum) {
+        // Finished today's round (stroke total posted)
+        scoreNum  = completedToPar;
+        todayNum  = validRounds[roundNum - 1] !== undefined ? (validRounds[roundNum - 1] - 72) : null;
+        thruToday = 18;
+      } else if (cleanScoreMatch) {
+        // ESPN has a final score but strokes not posted yet
+        scoreNum  = parseToParNum(cleanScoreMatch[1]);
+        todayNum  = validRounds.length > 0 ? scoreNum - completedToPar : scoreNum;
+        thruToday = 18;
+      } else if (validRounds.length > 0) {
+        // Finished prior rounds, not yet started today
+        scoreNum  = completedToPar;
       }
-      if (toPar.toUpperCase() === 'MC' && isMC) toPar = 'MC';
 
-      // Today = most recently started round
-      let todayIdx = -1;
-      for (let i = 3; i >= 0; i--) { if (rounds[i] !== null) { todayIdx = i; break; } }
-      const todayStrokes = todayIdx >= 0 ? rounds[todayIdx] : null;
-      const todayToPar   = todayStrokes ? toParStr(todayStrokes, 1) : null;
+      // Build display strings
+      const score = isMC ? 'MC' : isWD ? 'WD' : (numStr(scoreNum) ?? '-');
+      let today = null;
+      if (thruToday === 18) {
+        today = numStr(todayNum) ?? '-';
+      } else if (thruToday !== null && todayNum !== null) {
+        today = `${numStr(todayNum)} (thru ${thruToday})`;
+      }
 
-      // Tee time — only for players whose status is explicitly scheduled/not yet started
+      // Tee time — only for players whose status is explicitly not yet started
       const notStarted = stat === 'STATUS_SCHEDULED' || stat === 'STATUS_UPCOMING' || stat === '';
-      const teeTimeCT = notStarted && validRounds.length === 0 && !isMC && !isWD
+      const teeTimeCT  = notStarted && validRounds.length === 0 && !isMC && !isWD
         ? fmtTeeToCT(comp.teeTime || comp.status?.teeTime)
         : null;
 
       return {
-        pos:          comp.status?.position?.displayName || '',
-        name:         comp.athlete?.displayName || '',
-        country:      comp.athlete?.flag?.alt || '',
-        toPar,
+        pos:      comp.status?.position?.displayName || '',
+        name:     comp.athlete?.displayName || '',
+        country:  comp.athlete?.flag?.alt || '',
+        score,
+        scoreNum,
+        today,
+        thruToday,
         rounds,
-        todayStrokes,
-        todayToPar,
-        teeTimeCT,
         isMC,
         isWD,
-        sortOrder:    comp.sortOrder ?? 9999,
+        teeTimeCT,
+        sortOrder: comp.sortOrder ?? 9999,
       };
     });
 
