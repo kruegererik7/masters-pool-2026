@@ -348,7 +348,7 @@ app.get('/api/full-leaderboard', async (_req, res) => {
 
     players.sort((a, b) => a.sortOrder - b.sortOrder);
 
-    const roundNum    = competition.status?.period || 0;
+
     const roundLabels = ['', 'Round 1', 'Round 2', 'Round 3', 'Round 4'];
 
     fullLbCache = {
