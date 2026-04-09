@@ -143,14 +143,15 @@ async function syncFromESPN() {
       if (r4d?.status === 'complete' && r4d.toPar !== null)
         worstR4ToPar = worstR4ToPar === null ? r4d.toPar : Math.max(worstR4ToPar, r4d.toPar);
 
-      // Only save pool golfers
+      // Only save pool golfers — also store athleteId for scorecard lookups
       const poolName = [...poolGolfers].find(g => g.toLowerCase() === name.toLowerCase());
-      if (poolName) appData.scores[poolName] = roundData;
+      if (poolName) appData.scores[poolName] = { ...roundData, athleteId: comp.athlete?.id || null };
     }
 
     if (worstR3ToPar !== null) appData.penalties.r3 = worstR3ToPar;
     if (worstR4ToPar !== null) appData.penalties.r4 = worstR4ToPar;
 
+    currentEventId     = event.id || null;
     appData.lastSync   = new Date().toISOString();
     appData.syncStatus = `ok — ${event.name || 'tournament'}`;
     saveData();
@@ -199,6 +200,7 @@ app.post('/api/sync', async (_req, res) => {
 });
 
 // ── Full leaderboard proxy (all field players, cached 3 min) ──────────
+let currentEventId  = null; // set on first sync
 let fullLbCache     = null;
 let fullLbCacheTime = 0;
 // Clear cache on startup so first request always gets fresh data
@@ -311,9 +313,10 @@ app.get('/api/full-leaderboard', async (_req, res) => {
         : null;
 
       return {
-        pos:      comp.status?.position?.displayName || '',
-        name:     comp.athlete?.displayName || '',
-        country:  comp.athlete?.flag?.alt || '',
+        pos:       comp.status?.position?.displayName || '',
+        name:      comp.athlete?.displayName || '',
+        country:   comp.athlete?.flag?.alt || '',
+        athleteId: comp.athlete?.id || null,
         score,
         scoreNum,
         today,
@@ -344,6 +347,49 @@ app.get('/api/full-leaderboard', async (_req, res) => {
   } catch (e) {
     console.error('[FullLB]', e.message);
     res.status(500).json({ error: e.message, players: [] });
+  }
+});
+
+// ── Scorecard endpoint (hole-by-hole, on-demand, 5-min cache) ─────────
+const scorecardCache = new Map(); // athleteId -> { data, ts }
+const SCORECARD_TTL  = 5 * 60 * 1000;
+
+app.get('/api/scorecard/:athleteId', async (req, res) => {
+  const { athleteId } = req.params;
+  const now = Date.now();
+
+  const hit = scorecardCache.get(athleteId);
+  if (hit && (now - hit.ts) < SCORECARD_TTL) return res.json(hit.data);
+
+  const eventId = currentEventId;
+  if (!eventId) return res.status(503).json({ error: 'Event not loaded yet — try again in a moment' });
+
+  try {
+    const url = `https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/${eventId}/competitions/${eventId}/competitors/${athleteId}/linescores?lang=en&region=us`;
+    const r = await fetch(url, { headers: ESPN_HEADERS });
+    if (!r.ok) throw new Error(`ESPN HTTP ${r.status}`);
+    const json = await r.json();
+
+    const rounds = (json.items || [])
+      .filter(item => item.period && item.linescores?.length)
+      .map(item => ({
+        period:  item.period,
+        strokes: Number(item.value) || null,
+        holes:   (item.linescores || []).map(h => ({
+          hole:      h.period,
+          strokes:   h.value != null ? Number(h.value) : null,
+          display:   h.displayValue || '',
+          par:       h.par || null,
+          scoreType: h.scoreType?.name || 'PAR',
+        })),
+      }));
+
+    const data = { athleteId, rounds };
+    scorecardCache.set(athleteId, { data, ts: now });
+    res.json(data);
+  } catch (e) {
+    console.error('[Scorecard]', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 

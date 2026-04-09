@@ -183,6 +183,37 @@
     .flb-round.null-score { color: #ccc; }
     .cut-divider td { background: var(--green) !important; color: white !important; font-size: 0.68rem; letter-spacing: 2px; text-align: center !important; padding: 4px !important; height: auto !important; }
 
+    /* ── SCORECARD ── */
+    .sc-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 10px 4px 4px; }
+    .sc-loading { color: #aaa; font-size: 0.8rem; padding: 12px; font-style: italic; }
+    .sc-error   { color: var(--red); font-size: 0.8rem; padding: 12px; }
+    .sc-table { border-collapse: collapse; font-size: 0.75rem; min-width: 540px; width: 100%; }
+    .sc-table th, .sc-table td { text-align: center; padding: 5px 6px; border: 1px solid #ddd; min-width: 28px; }
+    .sc-label { text-align: left !important; font-weight: bold; background: var(--green); color: var(--gold); padding: 5px 8px !important; white-space: nowrap; }
+    .sc-par-cell { background: #f0f0ea; color: #555; font-size: 0.7rem; }
+    .sc-sub  { background: #e0e0d8; font-weight: bold; }
+    .sc-tot  { background: var(--green); color: var(--gold); font-weight: bold; }
+    .sc-hole-header { background: #2d6a4f; color: #cde8d0; font-size: 0.68rem; letter-spacing: 0.5px; }
+    .sc-empty { color: #ccc; }
+    /* Score type colours */
+    .sc-albatross { background: #d4af37; color: #000; font-weight: bold; }
+    .sc-eagle     { background: #d4af37; color: #000; font-weight: bold; }
+    .sc-birdie    { background: #c0392b; color: #fff; font-weight: bold; }
+    .sc-par       { background: #fff; color: #333; }
+    .sc-bogey     { background: #2d6a4f; color: #fff; }
+    .sc-double    { background: #1a1a2e; color: #fff; font-weight: bold; }
+    .sc-worse     { background: #000; color: #fff; font-weight: bold; }
+    /* Clickable golfer rows */
+    .golfer-clickable { cursor: pointer; }
+    .golfer-clickable:hover td { background: var(--light-green) !important; }
+    .golfer-name-btn { background: none; border: none; font: inherit; color: inherit; cursor: pointer; text-align: left; padding: 0; display: flex; align-items: center; gap: 5px; }
+    .chev-sm { font-size: 0.6rem; color: var(--muted); display: inline-block; transition: transform 0.2s; }
+    .chev-sm.open { transform: rotate(90deg); }
+    .sc-expand-row td { padding: 0 !important; background: #f7fbf7 !important; border-bottom: 2px solid #cde8d0 !important; }
+    .sc-tabs { display: flex; gap: 4px; padding: 8px 8px 0; }
+    .sc-tab { background: #e8f5e9; border: 1px solid #a5d6a7; color: var(--green); font-size: 0.72rem; padding: 3px 10px; border-radius: 4px 4px 0 0; cursor: pointer; font-family: inherit; }
+    .sc-tab.active { background: var(--green); color: var(--gold); border-color: var(--green); }
+
     /* ── TEAMS GRID ── */
     .teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; padding: 18px; }
     .team-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -720,17 +751,30 @@ function buildGolferSubRows(member) {
   };
 
   const rows = picks.map(p => {
-    const isMC = missedCut(p);
+    const isMC     = missedCut(p);
+    const aid      = scores[p]?.athleteId || '';
+    const aidAttr  = aid ? `data-aid="${aid}"` : '';
+    const clickable = aid ? `golfer-clickable` : '';
+    const chevId   = aid ? `id="chev-${aid}"` : '';
+    const onClick  = aid ? `onclick="toggleGolferSc('${aid}','${p.replace(/'/g,"\\'")}',this)"` : '';
     return `
-      <tr class="golfer-sub-row" data-member="${member}">
+      <tr class="golfer-sub-row ${clickable}" data-member="${member}" ${onClick}>
         <td></td>
-        <td class="golfer-name">${p}${isMC ? ' <span style="font-size:0.68rem;color:#bbb">(MC)</span>' : ''}</td>
+        <td class="golfer-name">
+          <button class="golfer-name-btn" ${aid ? '' : 'disabled'}>
+            ${aid ? `<span class="chev-sm" ${chevId}>▶</span>` : ''}
+            ${p}${isMC ? ' <span style="font-size:0.68rem;color:#bbb">(MC)</span>' : ''}
+          </button>
+        </td>
         <td>${fmtWeekday(getRound(p,'r1'))}</td>
         <td>${fmtWeekday(getRound(p,'r2'))}</td>
         <td>${fmtWeekend(p, getRound(p,'r3'), cntR3)}</td>
         <td>${fmtWeekend(p, getRound(p,'r4'), cntR4)}</td>
         <td></td>
-      </tr>`;
+      </tr>
+      ${aid ? `<tr id="sc-row-${aid}" class="sc-expand-row" style="display:none">
+        <td></td><td colspan="5"><div id="sc-content-${aid}" class="sc-loading">Loading scorecard…</div></td><td></td>
+      </tr>` : ''}`;
   }).join('');
 
   const penaltyRow = penalty ? `
@@ -872,10 +916,15 @@ async function renderFullLeaderboard() {
         todayCell = '<span style="color:#ccc">—</span>';
       }
 
+      const flbAid   = p.athleteId || '';
+      const flbClick = flbAid ? `style="cursor:pointer" onclick="toggleFlbSc('${flbAid}','${p.name.replace(/'/g,"\\'")}',this)"` : '';
+
       rows += `
-        <tr>
+        <tr class="${flbAid ? 'golfer-clickable' : ''}" ${flbClick}>
           <td class="flb-pos">${posLabel}</td>
-          <td class="flb-name ${isPool ? 'pool-member' : ''}">${p.name}</td>
+          <td class="flb-name ${isPool ? 'pool-member' : ''}">
+            ${flbAid ? `<span class="chev-sm" id="flb-chev-${flbAid}">▶</span> ` : ''}${p.name}
+          </td>
           <td class="flb-country">${p.country}</td>
           <td>${scoreCell}</td>
           <td>${todayCell}</td>
@@ -883,12 +932,170 @@ async function renderFullLeaderboard() {
           <td class="flb-round">${fmtRound(p.rounds[1])}</td>
           <td class="flb-round">${fmtRound(p.rounds[2])}</td>
           <td class="flb-round">${fmtRound(p.rounds[3])}</td>
-        </tr>`;
+        </tr>
+        ${flbAid ? `<tr id="flb-sc-row-${flbAid}" class="sc-expand-row" style="display:none">
+          <td colspan="9"><div id="flb-sc-content-${flbAid}" class="sc-loading">Loading scorecard…</div></td>
+        </tr>` : ''}`;
     });
 
     tbody.innerHTML = rows;
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#c00;padding:32px;background:white;">Failed to load: ${e.message}</td></tr>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SCORECARD
+// ══════════════════════════════════════════════════════════════════════
+const scCache = {};
+
+async function fetchScorecard(athleteId) {
+  if (scCache[athleteId] && (Date.now() - scCache[athleteId].ts) < 5 * 60 * 1000)
+    return scCache[athleteId].data;
+  const res  = await fetch(`/api/scorecard/${athleteId}`);
+  const data = await res.json();
+  if (!data.error) scCache[athleteId] = { data, ts: Date.now() };
+  return data;
+}
+
+function scTypeClass(type) {
+  if (!type) return 'sc-par';
+  const t = type.toUpperCase();
+  if (t.includes('ALBATROSS') || t.includes('DOUBLE_EAGLE')) return 'sc-albatross';
+  if (t.includes('EAGLE'))  return 'sc-eagle';
+  if (t.includes('BIRDIE')) return 'sc-birdie';
+  if (t.includes('BOGEY') && t.includes('DOUBLE')) return 'sc-double';
+  if (t.includes('BOGEY')) return 'sc-bogey';
+  if (t === 'PAR') return 'sc-par';
+  return 'sc-worse';
+}
+
+function renderScorecard(data, name) {
+  if (data.error) return `<div class="sc-error">⚠ ${data.error}</div>`;
+  if (!data.rounds?.length) return `<div class="sc-loading">No scorecard data yet.</div>`;
+
+  const AUGUSTA_PAR = [4,5,4,3,4,3,4,5,4, 4,4,3,5,4,5,3,4,4];
+
+  let tabsHtml = '';
+  let contentHtml = '';
+
+  data.rounds.forEach((round, ri) => {
+    const rLabel  = `R${round.period}`;
+    const isFirst = ri === 0;
+    const holeMap = {};
+    (round.holes || []).forEach(h => { holeMap[h.hole] = h; });
+
+    // Build par and score rows
+    const front = [1,2,3,4,5,6,7,8,9];
+    const back  = [10,11,12,13,14,15,16,17,18];
+
+    const parFront = front.reduce((s,h) => s + (AUGUSTA_PAR[h-1] || 0), 0);
+    const parBack  = back.reduce((s,h)  => s + (AUGUSTA_PAR[h-1] || 0), 0);
+
+    const scoreFront = front.reduce((s,h) => s + (holeMap[h]?.strokes || 0), 0);
+    const scoreBack  = back.reduce((s,h)  => s + (holeMap[h]?.strokes || 0), 0);
+
+    const makeHoleCells = holes => holes.map(h => {
+      const hd = holeMap[h];
+      if (!hd) return `<td class="sc-empty">—</td>`;
+      return `<td class="${scTypeClass(hd.scoreType)}">${hd.display || hd.strokes}</td>`;
+    }).join('');
+
+    const makeSubtotal = (val, cls='sc-sub') =>
+      val ? `<td class="${cls}">${val}</td>` : `<td class="sc-empty">—</td>`;
+
+    tabsHtml += `<button class="sc-tab${isFirst ? ' active' : ''}" onclick="scSwitchTab(this,'sc-round-${data.athleteId}-${ri}')">${rLabel}</button>`;
+
+    contentHtml += `
+      <div id="sc-round-${data.athleteId}-${ri}" style="display:${isFirst ? 'block' : 'none'}">
+        <div class="sc-wrap">
+          <table class="sc-table">
+            <thead>
+              <tr>
+                <th class="sc-label">HOLE</th>
+                ${front.map(h => `<th class="sc-hole-header">${h}</th>`).join('')}
+                <th class="sc-hole-header sc-sub">OUT</th>
+                ${back.map(h => `<th class="sc-hole-header">${h}</th>`).join('')}
+                <th class="sc-hole-header sc-sub">IN</th>
+                <th class="sc-hole-header sc-tot">TOT</th>
+              </tr>
+              <tr>
+                <td class="sc-label">PAR</td>
+                ${front.map(h => `<td class="sc-par-cell">${AUGUSTA_PAR[h-1]}</td>`).join('')}
+                <td class="sc-par-cell sc-sub">${parFront}</td>
+                ${back.map(h => `<td class="sc-par-cell">${AUGUSTA_PAR[h-1]}</td>`).join('')}
+                <td class="sc-par-cell sc-sub">${parBack}</td>
+                <td class="sc-par-cell sc-tot">72</td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="sc-label">${rLabel}</td>
+                ${makeHoleCells(front)}
+                ${makeSubtotal(scoreFront || null)}
+                ${makeHoleCells(back)}
+                ${makeSubtotal(scoreBack || null)}
+                ${makeSubtotal(round.strokes || null, 'sc-tot')}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  });
+
+  return `<div style="padding:4px 8px 10px">
+    <div style="font-size:0.72rem;color:var(--green);font-weight:bold;letter-spacing:1px;margin-bottom:4px">${name.toUpperCase()} — SCORECARD</div>
+    <div class="sc-tabs">${tabsHtml}</div>
+    ${contentHtml}
+  </div>`;
+}
+
+function scSwitchTab(btn, showId) {
+  const wrap = btn.closest('.sc-tabs').nextElementSibling;
+  btn.closest('.sc-tabs').querySelectorAll('.sc-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Hide all round divs in this scorecard, show target
+  const parent = btn.closest('[id^="sc-content"], [id^="flb-sc-content"]');
+  if (parent) {
+    parent.querySelectorAll('[id^="sc-round-"]').forEach(d => d.style.display = 'none');
+    const target = document.getElementById(showId);
+    if (target) target.style.display = 'block';
+  }
+}
+
+// Toggle scorecard for pool leaderboard golfer rows
+async function toggleGolferSc(athleteId, name, row) {
+  const scRow     = document.getElementById(`sc-row-${athleteId}`);
+  const scContent = document.getElementById(`sc-content-${athleteId}`);
+  const chev      = document.getElementById(`chev-${athleteId}`);
+  if (!scRow) return;
+
+  const isOpen = scRow.style.display !== 'none';
+  scRow.style.display = isOpen ? 'none' : 'table-row';
+  if (chev) chev.classList.toggle('open', !isOpen);
+
+  if (!isOpen && scContent) {
+    scContent.innerHTML = '<div class="sc-loading">Loading scorecard…</div>';
+    const data = await fetchScorecard(athleteId);
+    scContent.innerHTML = renderScorecard(data, name);
+  }
+}
+
+// Toggle scorecard for full leaderboard rows
+async function toggleFlbSc(athleteId, name, row) {
+  const scRow     = document.getElementById(`flb-sc-row-${athleteId}`);
+  const scContent = document.getElementById(`flb-sc-content-${athleteId}`);
+  const chev      = document.getElementById(`flb-chev-${athleteId}`);
+  if (!scRow) return;
+
+  const isOpen = scRow.style.display !== 'none';
+  scRow.style.display = isOpen ? 'none' : 'table-row';
+  if (chev) chev.classList.toggle('open', !isOpen);
+
+  if (!isOpen && scContent) {
+    scContent.innerHTML = '<div class="sc-loading">Loading scorecard…</div>';
+    const data = await fetchScorecard(athleteId);
+    scContent.innerHTML = renderScorecard(data, name);
   }
 }
 
