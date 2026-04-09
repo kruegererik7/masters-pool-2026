@@ -613,9 +613,6 @@ function renderLeaderboard() {
 
   const posClass = r => r === 1 ? 'pos-1' : r === 2 ? 'pos-2' : r === 3 ? 'pos-3' : '';
 
-  const expandBtn = document.getElementById('expand-all-btn');
-  if (expandBtn) expandBtn.textContent = 'COLLAPSE ALL';
-
   document.getElementById('leaderboard-body').innerHTML = standings.map(s => {
     const r3IsPenalty = mcCount(s.m) >= 2 && s.r3 !== null;
     const r4IsPenalty = mcCount(s.m) >= 2 && s.r4 !== null;
@@ -660,6 +657,13 @@ function renderLeaderboard() {
       }
     }
   }
+
+  // Restore saved expand/collapse preference
+  const expanded = getExpandedPref();
+  document.querySelectorAll('.golfer-sub-row').forEach(r => r.style.display = expanded ? '' : 'none');
+  document.querySelectorAll('.chevron').forEach(c => c.classList.toggle('open', expanded));
+  const expandBtn = document.getElementById('expand-all-btn');
+  if (expandBtn) expandBtn.textContent = expanded ? 'COLLAPSE ALL' : 'EXPAND ALL';
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -680,6 +684,12 @@ function toggleExpandAll() {
   allRows.forEach(r => r.style.display = open ? '' : 'none');
   document.querySelectorAll('.chevron').forEach(c => c.classList.toggle('open', open));
   document.getElementById('expand-all-btn').textContent = open ? 'COLLAPSE ALL' : 'EXPAND ALL';
+  localStorage.setItem('poolExpanded', open ? 'true' : 'false');
+}
+
+function getExpandedPref() {
+  const saved = localStorage.getItem('poolExpanded');
+  return saved === null ? true : saved === 'true'; // default to expanded if never set
 }
 
 function buildGolferSubRows(member) {
