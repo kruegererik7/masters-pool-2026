@@ -622,7 +622,7 @@ function renderLeaderboard() {
     const memberRow = `
       <tr class="lb-member-row" onclick="toggleExpand('${s.m}')">
         <td class="pos ${posClass(s.rank)}">${posLabel}</td>
-        <td class="member-name"><span class="chevron open" id="chev-${s.m}">▶</span>${s.m}</td>
+        <td class="member-name"><span class="chevron" id="chev-${s.m}">▶</span>${s.m}</td>
         <td>${fmtScore(s.r1)}</td>
         <td>${fmtScore(s.r2)}</td>
         <td>${s.r3 !== null ? (r3IsPenalty ? `<span class="penalty-score" title="Penalty: 2+ missed cut">${toParStr(s.r3)}*</span>` : fmtScore(s.r3)) : fmtScore(null)}</td>
@@ -689,7 +689,7 @@ function toggleExpandAll() {
 
 function getExpandedPref() {
   const saved = localStorage.getItem('poolExpanded');
-  return saved === null ? true : saved === 'true'; // default to expanded if never set
+  return saved === null ? false : saved === 'true'; // default to collapsed if never set
 }
 
 function buildGolferSubRows(member) {
