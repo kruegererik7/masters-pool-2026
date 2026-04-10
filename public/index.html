@@ -748,6 +748,20 @@ function getExpandedPref() {
   return saved === null ? false : saved === 'true'; // default to collapsed if never set
 }
 
+// Total tournament to-par for an individual golfer (completed + in-progress rounds)
+function golferTotalToPar(p) {
+  const gs = scores[p];
+  if (!gs) return null;
+  let total = 0, hasAny = false;
+  for (const r of ['r1','r2','r3','r4']) {
+    const rd = gs[r];
+    if (!rd || rd.status === 'notstarted' || rd.status === 'MC' || rd.toPar === null) continue;
+    total += rd.toPar;
+    hasAny = true;
+  }
+  return hasAny ? total : null;
+}
+
 function buildGolferSubRows(member) {
   const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
   if (!picks.length) return '';
@@ -796,7 +810,7 @@ function buildGolferSubRows(member) {
         <td>${fmtWeekday(getRound(p,'r2'))}</td>
         <td>${fmtWeekend(p, getRound(p,'r3'), cntR3)}</td>
         <td>${fmtWeekend(p, getRound(p,'r4'), cntR4)}</td>
-        <td></td>
+        <td>${(() => { const t = golferTotalToPar(p); if (t === null) return '<span class="score-null">—</span>'; const s = t === 0 ? 'E' : t > 0 ? `+${t}` : `${t}`; return `<span class="to-par-pill ${toParClass(s)}">${s}</span>`; })()}</td>
       </tr>
       ${aid ? `<tr id="sc-row-${aid}" class="sc-expand-row" style="display:none">
         <td></td><td colspan="5"><div id="sc-content-${aid}" class="sc-loading">Loading scorecard…</div></td><td></td>
