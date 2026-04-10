@@ -36,7 +36,7 @@ const DEFAULT_DATA = {
 const NOT_IN_FIELD = {
   'Tony Finau': {
     r1: { strokes: 84, toPar: 12, thru: 18, status: 'complete' },
-    r2: null,
+    r2: { strokes: 78, toPar:  6, thru: 18, status: 'complete' },
     r3: null,
     r4: null,
   },
