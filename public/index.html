@@ -523,7 +523,8 @@ function getRound(golfer, r) {
   return v;
 }
 
-function missedCut(golfer) { return getRound(golfer, 'r3')?.status === 'MC'; }
+function missedCut(golfer)  { return getRound(golfer, 'r3')?.status === 'MC'; }
+function notInField(golfer) { return scores[golfer]?.notInField === true; }
 
 function mcCount(member) {
   return (teams[member] || []).filter(p => p.trim() && missedCut(p.trim())).length;
@@ -788,7 +789,7 @@ function buildGolferSubRows(member) {
         <td class="golfer-name">
           <button class="golfer-name-btn" ${aid ? '' : 'disabled'}>
             ${aid ? `<span class="chev-sm" ${chevId}>▶</span>` : ''}
-            ${p}${isMC ? ' <span style="font-size:0.68rem;color:#bbb">(MC)</span>' : ''}
+            ${notInField(p) ? `<s style="color:#bbb">${p}</s> <span style="font-size:0.65rem;color:#e57373;font-style:italic">(NIF)</span>` : isMC ? `${p} <span style="font-size:0.68rem;color:#bbb">(MC)</span>` : p}
           </button>
         </td>
         <td>${fmtWeekday(getRound(p,'r1'))}</td>
@@ -850,7 +851,7 @@ function renderTeams() {
 
       return `
         <div class="team-player-row${isMC ? ' mc' : ''}">
-          <span>${p}${isMC ? '<span class="mc-tag">MC</span>' : ''}</span>
+          <span>${notInField(p) ? `<s style="color:#bbb">${p}</s><span class="mc-tag" style="color:#e57373;background:#fff0f0">NIF</span>` : p + (isMC ? '<span class="mc-tag">MC</span>' : '')}</span>
           ${fmtR(getRound(p,'r1'), true, false)}
           ${fmtR(getRound(p,'r2'), true, false)}
           ${fmtR(getRound(p,'r3'), !isPenaltyR3 && countR3.has(p), isMC)}

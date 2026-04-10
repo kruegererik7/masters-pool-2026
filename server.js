@@ -31,6 +31,31 @@ const DEFAULT_DATA = {
   syncStatus: 'never synced'
 };
 
+// ── Players not in the field — scores set manually each round ─────────
+// Update r2/r3/r4 here as each round completes. Worst R1 = 84 (+12).
+const NOT_IN_FIELD = {
+  'Tony Finau': {
+    r1: { strokes: 84, toPar: 12, thru: 18, status: 'complete' },
+    r2: null,
+    r3: null,
+    r4: null,
+  },
+};
+
+function applyNotInFieldScores() {
+  for (const [name, rounds] of Object.entries(NOT_IN_FIELD)) {
+    const existing = appData.scores[name] || {};
+    appData.scores[name] = {
+      ...existing,
+      notInField: true,
+      r1: rounds.r1 ?? existing.r1 ?? { strokes: null, toPar: null, thru: null, status: 'notstarted' },
+      r2: rounds.r2 ?? existing.r2 ?? { strokes: null, toPar: null, thru: null, status: 'notstarted' },
+      r3: rounds.r3 ?? existing.r3 ?? { strokes: null, toPar: null, thru: null, status: 'notstarted' },
+      r4: rounds.r4 ?? existing.r4 ?? { strokes: null, toPar: null, thru: null, status: 'notstarted' },
+    };
+  }
+}
+
 // ── Data helpers ──────────────────────────────────────────────────────
 function loadData() {
   try {
@@ -48,6 +73,8 @@ function saveData() {
 let appData  = loadData();
 // Always apply latest picks from code (survives redeploys)
 appData.teams = TEAM_PICKS;
+// Apply manual not-in-field scores on every startup
+applyNotInFieldScores();
 saveData();
 
 // ── ESPN Sync ─────────────────────────────────────────────────────────
@@ -143,14 +170,16 @@ async function syncFromESPN() {
       if (r4d?.status === 'complete' && r4d.toPar !== null)
         worstR4ToPar = worstR4ToPar === null ? r4d.toPar : Math.max(worstR4ToPar, r4d.toPar);
 
-      // Only save pool golfers — also store athleteId for scorecard lookups
+      // Only save pool golfers — skip manually managed not-in-field players
       const poolName = [...poolGolfers].find(g => g.toLowerCase() === name.toLowerCase());
-      if (poolName) appData.scores[poolName] = { ...roundData, athleteId: comp.athlete?.id || null };
+      if (poolName && !appData.scores[poolName]?.notInField)
+        appData.scores[poolName] = { ...roundData, athleteId: comp.athlete?.id || null };
     }
 
     if (worstR3ToPar !== null) appData.penalties.r3 = worstR3ToPar;
     if (worstR4ToPar !== null) appData.penalties.r4 = worstR4ToPar;
 
+    applyNotInFieldScores(); // keep manual scores intact after sync
     currentEventId     = event.id || null;
     appData.lastSync   = new Date().toISOString();
     appData.syncStatus = `ok — ${event.name || 'tournament'}`;
