@@ -530,12 +530,24 @@ function mcCount(member) {
   return (teams[member] || []).filter(p => p.trim() && missedCut(p.trim())).length;
 }
 
-// Returns Set of golfer names whose score counts for a weekend round
+// How many penalty slots a team needs for a weekend round:
+// slots = max(0, 4 - active_players_who_made_cut)
+// Only applies when 2+ missed cut.
+function penaltySlots(member) {
+  const picks  = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
+  const active = picks.filter(p => !missedCut(p)).length;
+  return mcCount(member) >= 2 ? Math.max(0, 4 - active) : 0;
+}
+
+// Returns Set of golfer names whose score counts for a weekend round.
+// When 2+ missed cut: ALL active players count (penalty slots fill the rest).
+// When 0-1 missed cut: best 4 of active players count.
 function countingPicks(member, round) {
-  const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
-  if (mcCount(member) >= 2) return new Set();
-  const withToPar = picks
-    .filter(p => !missedCut(p))
+  const picks  = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
+  const mc     = mcCount(member);
+  const active = picks.filter(p => !missedCut(p));
+
+  const withToPar = active
     .map(p => {
       const rd = getRound(p, round);
       const tp = (rd && rd.status !== 'notstarted' && rd.status !== 'MC' && rd.toPar !== null) ? rd.toPar : null;
@@ -543,7 +555,11 @@ function countingPicks(member, round) {
     })
     .filter(x => x.toPar !== null);
   withToPar.sort((a, b) => a.toPar - b.toPar);
-  return new Set(withToPar.slice(0, 4).map(x => x.p));
+
+  // 2+ missed cut → all active count; otherwise top-4
+  return new Set(mc >= 2
+    ? withToPar.map(x => x.p)
+    : withToPar.slice(0, 4).map(x => x.p));
 }
 
 // Returns team round score as to-par number
@@ -552,28 +568,34 @@ function teamRoundScore(member, round) {
   if (!picks.length) return null;
 
   const mc = mcCount(member);
-  if ((round === 'r3' || round === 'r4') && mc >= 2) {
-    const pen = penalties[round];
-    return (pen !== null && pen !== undefined) ? Number(pen) : null;
-  }
 
-  const getTP = p => {
-    if (missedCut(p) && (round === 'r3' || round === 'r4')) return null;
-    const rd = getRound(p, round);
-    if (!rd || rd.status === 'notstarted' || rd.status === 'MC') return null;
-    return rd.toPar; // null if ESPN hasn't sent us a value yet
-  };
-
+  // Weekday: all scores count
   if (round === 'r1' || round === 'r2') {
-    const vals = picks.map(getTP).filter(v => v !== null);
+    const vals = picks.map(p => {
+      const rd = getRound(p, round);
+      if (!rd || rd.status === 'notstarted' || rd.status === 'MC') return null;
+      return rd.toPar;
+    }).filter(v => v !== null);
     return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
   }
 
-  // Weekend: sum top-4
+  // Weekend scoring
   const counting = countingPicks(member, round);
-  if (!counting.size) return null;
-  const vals = [...counting].map(p => getRound(p, round)?.toPar).filter(v => v !== null);
-  return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+  const activeSum = [...counting]
+    .map(p => getRound(p, round)?.toPar)
+    .filter(v => v !== null)
+    .reduce((a, b) => a + b, 0);
+
+  const slots = penaltySlots(member);
+  if (slots === 0) {
+    // Normal top-4: no penalty slots needed
+    return counting.size ? activeSum : null;
+  }
+
+  // 2+ missed cut: active scores + penalty × missing slots
+  const pen = penalties[round];
+  if (pen === null || pen === undefined) return null; // penalty not yet known
+  return activeSum + slots * Number(pen);
 }
 
 // Returns team total as to-par number
@@ -766,11 +788,11 @@ function buildGolferSubRows(member) {
   const picks = (teams[member] || []).filter(p => p.trim()).map(p => p.trim());
   if (!picks.length) return '';
 
-  const penalty = mcCount(member) >= 2;
+  const mc      = mcCount(member);
+  const slots   = penaltySlots(member);
   const cntR3   = countingPicks(member, 'r3');
   const cntR4   = countingPicks(member, 'r4');
 
-  // Wrap a formatted round cell with counting/strikethrough styling
   const wrapCounting = (html, isCounting) =>
     isCounting
       ? `<span class="g-score-counting">${html}</span>`
@@ -778,15 +800,15 @@ function buildGolferSubRows(member) {
 
   const fmtWeekday = rd => {
     const html = fmtRoundCell(rd);
-    return `<span class="g-score-counting">${html}</span>`; // weekday always counts
+    return `<span class="g-score-counting">${html}</span>`;
   };
 
   const fmtWeekend = (p, rd, countingSet) => {
     if (missedCut(p)) return `<span class="g-score-mc">MC</span>`;
     const html = fmtRoundCell(rd);
-    if (penalty) return wrapCounting(html, false); // penalty — all struck through
     const rdStatus = rd?.status;
     if (!rdStatus || rdStatus === 'notstarted') return html;
+    // Active players always count when 2+ MC (penalty fills missing slots)
     return wrapCounting(html, countingSet.has(p));
   };
 
@@ -817,10 +839,10 @@ function buildGolferSubRows(member) {
       </tr>` : ''}`;
   }).join('');
 
-  const penaltyRow = penalty ? `
+  const penaltyRow = mc >= 2 ? `
     <tr class="golfer-sub-row" data-member="${member}">
       <td></td>
-      <td class="penalty-row-cell" colspan="5">⚠ 2+ players missed cut — penalty score applied for R3 &amp; R4</td>
+      <td class="penalty-row-cell" colspan="5">⚠ ${mc} players missed cut — ${5 - mc} active score${5-mc===1?'':'s'} count + ${slots} penalty slot${slots===1?'':'s'} (worst score in field) per weekend round</td>
       <td></td>
     </tr>` : '';
 
@@ -873,8 +895,9 @@ function renderTeams() {
         </div>`;
     }).join('') : `<div style="padding:12px;color:#ccc;font-size:0.82rem">No picks entered</div>`;
 
-    const penaltyNote = isPenaltyR3
-      ? `<div class="penalty-row">⚠ 2+ players missed cut — penalty score applies for R3/R4</div>` : '';
+    const slots3 = penaltySlots(member);
+    const penaltyNote = isPenaltyR3 && slots3 > 0
+      ? `<div class="penalty-row">⚠ ${mc} missed cut — ${5-mc} active + ${slots3} penalty slot${slots3===1?'':'s'} per weekend round</div>` : '';
 
     return `
       <div class="team-card">
